@@ -6,6 +6,13 @@ export type CommentStatus = "pending" | "approved" | "rejected";
 
 export type Severity = "critical" | "high" | "medium" | "low";
 
+/**
+ * Side of the diff the comment applies to:
+ * - RIGHT: Added lines (green, +) or unchanged context lines
+ * - LEFT: Deleted lines (red, -)
+ */
+export type DiffSide = "LEFT" | "RIGHT";
+
 export type AIProvider =
   | "anthropic"
   | "openai"
@@ -22,6 +29,12 @@ export interface ReviewComment {
   file: string;
   line: number;
   endLine?: number;
+  /**
+   * Which side of the diff this comment applies to:
+   * - RIGHT (default): For added lines (+) or context lines
+   * - LEFT: For deleted lines (-)
+   */
+  side: DiffSide;
   severity: Severity;
   issue: string;
   suggestion?: string;
@@ -75,6 +88,7 @@ export interface AIReviewOutput {
     file: string;
     line: number;
     endLine?: number;
+    side?: "LEFT" | "RIGHT";
     severity: string;
     issue: string;
     suggestion?: string;

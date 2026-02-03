@@ -176,10 +176,11 @@ export async function submitReviewComments(
     return { success: false, message: "No comments to submit" };
   }
 
-  // Build review payload
+  // Build review payload with side parameter for accurate line placement
   const reviewComments = comments.map((c) => ({
     path: c.file,
     line: c.line,
+    side: c.side, // LEFT for deleted lines, RIGHT for added/context lines
     body: c.editedText || formatCommentBody(c),
   }));
 

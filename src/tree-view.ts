@@ -103,7 +103,9 @@ export class PRReviewTreeProvider
       case "comment":
         const comment = element.comment!;
         item.iconPath = this.getCommentIcon(comment);
-        item.description = `Line ${comment.line}`;
+        // Show line number and side (LEFT for deleted, RIGHT for added)
+        const sideIndicator = comment.side === "LEFT" ? "−" : "+";
+        item.description = `Line ${comment.line} (${sideIndicator})`;
         item.collapsibleState = vscode.TreeItemCollapsibleState.None;
         item.contextValue = `comment-${comment.status}`;
         item.tooltip = this.getCommentTooltip(comment);
@@ -442,8 +444,9 @@ export class PRReviewTreeProvider
 
   private getCommentTooltip(comment: ReviewComment): vscode.MarkdownString {
     const md = new vscode.MarkdownString();
+    const sideLabel = comment.side === "LEFT" ? "deleted line" : "added/context line";
     md.appendMarkdown(
-      `**${comment.severity.toUpperCase()}**: ${comment.issue}\n\n`
+      `**${comment.severity.toUpperCase()}** (${sideLabel}): ${comment.issue}\n\n`
     );
     if (comment.suggestion) {
       md.appendMarkdown(`**Suggestion:** ${comment.suggestion}\n\n`);

@@ -18,6 +18,7 @@ import type {
   AIReviewOutput,
   ReviewComment,
   Severity,
+  DiffSide,
 } from "./types";
 
 /**
@@ -48,6 +49,7 @@ The JSON must follow this EXACT schema:
     {
       "file": "exact/path/to/file.ts",
       "line": 42,
+      "side": "RIGHT",
       "severity": "high",
       "issue": "Clear description of the problem",
       "suggestion": "How to fix it"
@@ -58,17 +60,34 @@ The JSON must follow this EXACT schema:
 ## Field Requirements
 - "summary": String - brief PR summary, MAX 200 characters, no newlines
 - "file": String - exact file path as shown in the diff (without a/ or b/ prefix)
-- "line": Number - line number in the NEW file version (lines with + prefix in diff)
+- "line": Number - the line number where the issue is located
+- "side": String - MUST be either "RIGHT" or "LEFT":
+  - Use "RIGHT" for comments about ADDED lines (lines starting with + in the diff) or unchanged context lines
+  - Use "LEFT" for comments about DELETED lines (lines starting with - in the diff)
+  - When "side" is "RIGHT", use the NEW file line number (shown after the comma in @@ -old,count +NEW,count @@)
+  - When "side" is "LEFT", use the OLD file line number (shown before the comma in @@ -OLD,count +new,count @@)
 - "severity": String - exactly one of: "critical", "high", "medium", "low"
 - "issue": String - concise description of the problem (no newlines)
 - "suggestion": String - how to fix it (no newlines)
 
+## Understanding Diff Line Numbers
+In a diff like:
+\`\`\`
+@@ -10,5 +12,7 @@
+ context line (unchanged)
+-deleted line (was line 11 in old file)
++added line (is line 13 in new file)
+\`\`\`
+- For the deleted line: use "side": "LEFT", "line": 11
+- For the added line: use "side": "RIGHT", "line": 13
+- For context lines: use "side": "RIGHT" with the new file line number
+
 ## Important Rules
 1. ALWAYS include a "summary" field - this is required
-2. Review the ENTIRE diff - check ALL files, not just the first one
-3. Report ALL issues you find, not just one
-4. Use the exact file path from the diff header (e.g., "src/components/Button.tsx")
-5. Line numbers must be from the NEW file (+ lines), not the old file (- lines)
+2. ALWAYS include "side" field for each finding - this is required for accurate GitHub comments
+3. Review the ENTIRE diff - check ALL files, not just the first one
+4. Report ALL issues you find, not just one
+5. Use the exact file path from the diff header (e.g., "src/components/Button.tsx")
 6. Keep string values on a single line - no newlines inside strings
 7. Return valid JSON only - no markdown code blocks, no explanatory text
 
@@ -77,7 +96,7 @@ If the code looks good with no issues, still include a summary:
 {"summary": "Clean implementation with good practices. No issues found.", "findings": []}
 
 ## Example Response
-{"summary": "Adds user auth with JWT tokens. Generally solid but needs error handling improvements.", "findings": [{"file": "src/api/client.ts", "line": 45, "severity": "high", "issue": "Missing error handling for network request", "suggestion": "Wrap fetch call in try-catch and handle errors"}, {"file": "src/utils/validate.ts", "line": 12, "severity": "low", "issue": "Type assertion could be replaced with type guard", "suggestion": "Use a type guard function for better type safety"}]}`;
+{"summary": "Adds user auth with JWT tokens. Generally solid but needs error handling improvements.", "findings": [{"file": "src/api/client.ts", "line": 45, "side": "RIGHT", "severity": "high", "issue": "Missing error handling for network request", "suggestion": "Wrap fetch call in try-catch and handle errors"}, {"file": "src/utils/validate.ts", "line": 12, "side": "RIGHT", "severity": "low", "issue": "Type assertion could be replaced with type guard", "suggestion": "Use a type guard function for better type safety"}, {"file": "src/old-code.ts", "line": 8, "side": "LEFT", "severity": "medium", "issue": "Removed validation that was important", "suggestion": "Consider keeping the validation or adding equivalent checks elsewhere"}]}`;
 
 /**
  * Get the configured AI provider
@@ -386,6 +405,7 @@ function parseAIResponse(response: string): AIReviewResult {
         file: filePath,
         line: Math.floor(f.line),
         endLine: f.endLine ? Math.floor(f.endLine) : undefined,
+        side: normalizeSide(f.side),
         severity: normalizeSeverity(f.severity),
         issue: sanitizeString(f.issue),
         suggestion: f.suggestion ? sanitizeString(f.suggestion) : undefined,
@@ -396,6 +416,7 @@ function parseAIResponse(response: string): AIReviewResult {
       log(`  Created comment:`, {
         file: comment.file,
         line: comment.line,
+        side: comment.side,
         severity: comment.severity,
       });
       comments.push(comment);
@@ -426,6 +447,7 @@ function parseAIResponse(response: string): AIReviewResult {
           id: `comment-${Date.now()}-${idx}`,
           file: String(f.file || "unknown").replace(/^[ab]\//, ""),
           line: Number(f.line) || 1,
+          side: normalizeSide(f.side),
           severity: normalizeSeverity(f.severity),
           issue: sanitizeString(String(f.issue || "Unknown issue")),
           suggestion: f.suggestion
@@ -516,6 +538,22 @@ function normalizeSeverity(s: string | undefined): Severity {
   if (lower === "low" || lower === "lo" || lower === "minor") return "low";
 
   return "medium";
+}
+
+/**
+ * Normalize diff side to valid values
+ * Default to RIGHT (added/context lines) if not specified
+ */
+function normalizeSide(s: string | undefined): DiffSide {
+  if (!s) return "RIGHT";
+
+  const upper = String(s).toUpperCase().trim();
+
+  if (upper === "LEFT" || upper === "L") return "LEFT";
+  if (upper === "RIGHT" || upper === "R") return "RIGHT";
+
+  // Default to RIGHT for added/context lines
+  return "RIGHT";
 }
 
 /**
