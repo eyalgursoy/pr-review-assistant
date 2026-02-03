@@ -113,12 +113,6 @@ function registerCommands(context: vscode.ExtensionContext) {
     })
   );
 
-  // Enter PR URL
-  context.subscriptions.push(
-    vscode.commands.registerCommand("prReview.enterPrUrl", async () => {
-      await startReview();
-    })
-  );
 
   // Run AI Review
   context.subscriptions.push(

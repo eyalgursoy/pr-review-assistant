@@ -28,7 +28,7 @@ import type {
 const REVIEW_SYSTEM_PROMPT = `You are an expert code reviewer analyzing a pull request diff.
 
 ## Your Task
-1. Write a brief SUMMARY of the PR changes (max 200 characters)
+1. Write a brief encouraging SUMMARY that provides qualitative feedback (max 200 characters)
 2. Review ALL the code changes thoroughly and identify ALL potential issues across ALL files
 
 Focus on:
@@ -45,7 +45,7 @@ You MUST respond with ONLY a valid JSON object. No markdown, no explanations, no
 The JSON must follow this EXACT schema:
 
 {
-  "summary": "Brief 1-2 sentence summary of what this PR does and overall code quality (max 200 chars)",
+  "summary": "Encouraging feedback about code quality and what's good (max 200 chars)",
   "findings": [
     {
       "file": "exact/path/to/file.ts",
@@ -58,6 +58,25 @@ The JSON must follow this EXACT schema:
   ]
 }
 
+## IMPORTANT: Summary Field Guidelines
+The summary should be QUALITATIVE FEEDBACK, not a description of what the PR does. 
+- DO NOT describe what changes were made (the developer already knows this)
+- DO provide encouraging feedback about code quality, architecture, or patterns
+- DO acknowledge what's done well before mentioning improvements needed
+- DO inspire the developer to address the findings
+
+Good summary examples:
+- "Well-structured implementation! Addressing the edge cases below will make it production-ready."
+- "Clean code with good separation of concerns. A few minor improvements suggested."
+- "Excellent work! Code is clean, well-organized, and follows best practices."
+- "Solid foundation here. The suggested changes will improve error resilience."
+- "Good progress! The highlighted items will strengthen maintainability."
+
+Bad summary examples (DO NOT do this):
+- "Adds user authentication with JWT tokens" (just describes what changed)
+- "Updates the API client and adds validation" (just describes what changed)
+- "Refactors the database layer" (just describes what changed)
+
 ## IMPORTANT: Annotated Line Numbers
 The diff you receive has been annotated with EXACT line numbers. Each line has a prefix showing:
 - \`[OLD:X|NEW:Y]\` - Context line: X is old file line, Y is new file line
@@ -67,7 +86,7 @@ The diff you receive has been annotated with EXACT line numbers. Each line has a
 **USE THESE ANNOTATED LINE NUMBERS DIRECTLY** - they are the exact line numbers you should report.
 
 ## Field Requirements
-- "summary": String - brief PR summary, MAX 200 characters, no newlines
+- "summary": String - encouraging qualitative feedback, MAX 200 characters, no newlines
 - "file": String - exact file path as shown in the diff (without a/ or b/ prefix)
 - "line": Number - **USE THE ANNOTATED LINE NUMBER** from the diff:
   - For lines marked \`[NEW:X|ADD]\` or \`[OLD:X|NEW:Y]\`, use X or Y based on side
@@ -94,7 +113,7 @@ For this diff:
 - To comment on context lines: use the NEW number, e.g., \`"line": 12, "side": "RIGHT"\` or \`"line": 14, "side": "RIGHT"\`
 
 ## Important Rules
-1. ALWAYS include a "summary" field - this is required
+1. ALWAYS include a "summary" field with encouraging qualitative feedback - this is required
 2. ALWAYS include "side" field for each finding - this is required for accurate GitHub comments
 3. **ALWAYS use the annotated line numbers** - do not calculate line numbers yourself
 4. Review the ENTIRE diff - check ALL files, not just the first one
@@ -104,11 +123,11 @@ For this diff:
 8. Return valid JSON only - no markdown code blocks, no explanatory text
 
 ## If No Issues Found
-If the code looks good with no issues, still include a summary:
-{"summary": "Clean implementation with good practices. No issues found.", "findings": []}
+If the code looks good with no issues, provide positive feedback:
+{"summary": "Excellent work! Clean, well-structured code that follows best practices.", "findings": []}
 
 ## Example Response
-{"summary": "Adds user auth with JWT tokens. Generally solid but needs error handling improvements.", "findings": [{"file": "src/api/client.ts", "line": 45, "side": "RIGHT", "severity": "high", "issue": "Missing error handling for network request", "suggestion": "Wrap fetch call in try-catch and handle errors"}, {"file": "src/utils/validate.ts", "line": 12, "side": "RIGHT", "severity": "low", "issue": "Type assertion could be replaced with type guard", "suggestion": "Use a type guard function for better type safety"}, {"file": "src/old-code.ts", "line": 8, "side": "LEFT", "severity": "medium", "issue": "Removed validation that was important", "suggestion": "Consider keeping the validation or adding equivalent checks elsewhere"}]}`;
+{"summary": "Well-structured implementation! Addressing these edge cases will make it production-ready.", "findings": [{"file": "src/api/client.ts", "line": 45, "side": "RIGHT", "severity": "high", "issue": "Missing error handling for network request", "suggestion": "Wrap fetch call in try-catch and handle errors"}, {"file": "src/utils/validate.ts", "line": 12, "side": "RIGHT", "severity": "low", "issue": "Type assertion could be replaced with type guard", "suggestion": "Use a type guard function for better type safety"}, {"file": "src/old-code.ts", "line": 8, "side": "LEFT", "severity": "medium", "issue": "Removed validation that was important", "suggestion": "Consider keeping the validation or adding equivalent checks elsewhere"}]}`;
 
 /**
  * Get the configured AI provider
@@ -182,8 +201,13 @@ export async function runAIReview(
 
   // Annotate the diff with absolute line numbers for accuracy
   const annotatedResult = annotateDiff(truncatedDiff);
-  log(`Annotated diff: ${annotatedResult.fileCount} files, ${annotatedResult.hunkCount} hunks`);
-  log(`Annotated diff preview (first 800 chars):`, annotatedResult.annotated.substring(0, 800));
+  log(
+    `Annotated diff: ${annotatedResult.fileCount} files, ${annotatedResult.hunkCount} hunks`
+  );
+  log(
+    `Annotated diff preview (first 800 chars):`,
+    annotatedResult.annotated.substring(0, 800)
+  );
 
   const userPrompt = `${template}
 
