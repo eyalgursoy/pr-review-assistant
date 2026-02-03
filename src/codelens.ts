@@ -1,0 +1,218 @@
+/**
+ * CodeLens provider for inline review comments
+ */
+
+import * as vscode from "vscode";
+import { getCommentsForFile, onStateChange } from "./state";
+import type { ReviewComment } from "./types";
+
+export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
+  private _onDidChangeCodeLenses = new vscode.EventEmitter<void>();
+  readonly onDidChangeCodeLenses = this._onDidChangeCodeLenses.event;
+
+  constructor() {
+    // Refresh code lenses when state changes
+    onStateChange(() => {
+      this._onDidChangeCodeLenses.fire();
+    });
+  }
+
+  provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+    const filePath = this.getRelativePath(document.uri);
+    const comments = getCommentsForFile(filePath);
+
+    if (comments.length === 0) {
+      return [];
+    }
+
+    const codeLenses: vscode.CodeLens[] = [];
+
+    for (const comment of comments) {
+      // Ensure line is within document bounds
+      const line = Math.min(
+        Math.max(0, comment.line - 1),
+        document.lineCount - 1
+      );
+      const range = new vscode.Range(line, 0, line, 0);
+
+      // Main comment lens
+      const severityEmoji = this.getSeverityEmoji(comment.severity);
+      const statusIcon = this.getStatusIcon(comment.status);
+
+      codeLenses.push(
+        new vscode.CodeLens(range, {
+          title: `${statusIcon} ${severityEmoji} ${comment.issue}`,
+          command: "prReview.showCommentDetails",
+          arguments: [comment],
+          tooltip: this.getTooltip(comment),
+        })
+      );
+
+      // Action buttons for pending comments
+      if (comment.status === "pending") {
+        codeLenses.push(
+          new vscode.CodeLens(range, {
+            title: "✓ Approve",
+            command: "prReview.approveComment",
+            arguments: [comment.id],
+          })
+        );
+
+        codeLenses.push(
+          new vscode.CodeLens(range, {
+            title: "✗ Reject",
+            command: "prReview.rejectComment",
+            arguments: [comment.id],
+          })
+        );
+
+        codeLenses.push(
+          new vscode.CodeLens(range, {
+            title: "✎ Edit",
+            command: "prReview.editComment",
+            arguments: [comment.id],
+          })
+        );
+      }
+
+      // Show suggestion if available
+      if (comment.suggestion) {
+        codeLenses.push(
+          new vscode.CodeLens(range, {
+            title: `💡 ${this.truncate(comment.suggestion, 60)}`,
+            command: "prReview.showSuggestion",
+            arguments: [comment],
+          })
+        );
+      }
+    }
+
+    return codeLenses;
+  }
+
+  private getRelativePath(uri: vscode.Uri): string {
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+    if (workspaceFolder) {
+      return vscode.workspace.asRelativePath(uri, false);
+    }
+    return uri.fsPath;
+  }
+
+  private getSeverityEmoji(severity: string): string {
+    const emojis: Record<string, string> = {
+      critical: "🔴",
+      high: "🟠",
+      medium: "🟡",
+      low: "🟢",
+    };
+    return emojis[severity] || "⚪";
+  }
+
+  private getStatusIcon(status: string): string {
+    const icons: Record<string, string> = {
+      pending: "○",
+      approved: "✓",
+      rejected: "✗",
+    };
+    return icons[status] || "○";
+  }
+
+  private getTooltip(comment: ReviewComment): string {
+    let tooltip = `[${comment.severity.toUpperCase()}] ${comment.issue}`;
+    if (comment.suggestion) {
+      tooltip += `\n\nSuggestion: ${comment.suggestion}`;
+    }
+    tooltip += `\n\nStatus: ${comment.status}`;
+    return tooltip;
+  }
+
+  private truncate(str: string, maxLength: number): string {
+    if (str.length <= maxLength) return str;
+    return str.slice(0, maxLength - 3) + "...";
+  }
+}
+
+/**
+ * Decoration provider for highlighting lines with comments
+ */
+export function createCommentDecorations(): {
+  pendingDecoration: vscode.TextEditorDecorationType;
+  approvedDecoration: vscode.TextEditorDecorationType;
+  rejectedDecoration: vscode.TextEditorDecorationType;
+} {
+  const pendingDecoration = vscode.window.createTextEditorDecorationType({
+    backgroundColor: "rgba(255, 193, 7, 0.1)",
+    isWholeLine: true,
+    overviewRulerColor: "rgba(255, 193, 7, 0.8)",
+    overviewRulerLane: vscode.OverviewRulerLane.Left,
+  });
+
+  const approvedDecoration = vscode.window.createTextEditorDecorationType({
+    backgroundColor: "rgba(76, 175, 80, 0.1)",
+    isWholeLine: true,
+    overviewRulerColor: "rgba(76, 175, 80, 0.8)",
+    overviewRulerLane: vscode.OverviewRulerLane.Left,
+  });
+
+  const rejectedDecoration = vscode.window.createTextEditorDecorationType({
+    backgroundColor: "rgba(244, 67, 54, 0.05)",
+    isWholeLine: true,
+    overviewRulerColor: "rgba(244, 67, 54, 0.5)",
+    overviewRulerLane: vscode.OverviewRulerLane.Left,
+  });
+
+  return { pendingDecoration, approvedDecoration, rejectedDecoration };
+}
+
+/**
+ * Update decorations for an editor
+ */
+export function updateDecorations(
+  editor: vscode.TextEditor,
+  decorations: ReturnType<typeof createCommentDecorations>
+): void {
+  const filePath = vscode.workspace.asRelativePath(editor.document.uri, false);
+  const comments = getCommentsForFile(filePath);
+
+  const pending: vscode.DecorationOptions[] = [];
+  const approved: vscode.DecorationOptions[] = [];
+  const rejected: vscode.DecorationOptions[] = [];
+
+  for (const comment of comments) {
+    const line = Math.min(
+      Math.max(0, comment.line - 1),
+      editor.document.lineCount - 1
+    );
+    const range = new vscode.Range(
+      line,
+      0,
+      line,
+      editor.document.lineAt(line).text.length
+    );
+
+    const decoration: vscode.DecorationOptions = {
+      range,
+      hoverMessage: new vscode.MarkdownString(
+        `**${comment.severity.toUpperCase()}**: ${comment.issue}${
+          comment.suggestion ? `\n\n*Suggestion:* ${comment.suggestion}` : ""
+        }`
+      ),
+    };
+
+    switch (comment.status) {
+      case "pending":
+        pending.push(decoration);
+        break;
+      case "approved":
+        approved.push(decoration);
+        break;
+      case "rejected":
+        rejected.push(decoration);
+        break;
+    }
+  }
+
+  editor.setDecorations(decorations.pendingDecoration, pending);
+  editor.setDecorations(decorations.approvedDecoration, approved);
+  editor.setDecorations(decorations.rejectedDecoration, rejected);
+}

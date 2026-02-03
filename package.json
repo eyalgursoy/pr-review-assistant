@@ -1,0 +1,236 @@
+{
+  "name": "pr-review-assistant",
+  "displayName": "PR Review Assistant",
+  "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
+  "version": "0.2.0",
+  "publisher": "pr-review",
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pr-review/pr-review-assistant"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "keywords": [
+    "github",
+    "pull request",
+    "code review",
+    "ai",
+    "claude",
+    "gpt",
+    "gemini",
+    "groq"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "views": {
+      "scm": [
+        {
+          "id": "prReviewAssistant",
+          "name": "PR Review Assistant",
+          "icon": "resources/icon.png",
+          "contextualTitle": "PR Review"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "prReviewAssistant",
+        "contents": "Start an AI-powered PR review.\n[Start Review](command:prReview.startReview)\n\nOr enter a PR URL directly:\n[Enter PR URL](command:prReview.enterPrUrl)"
+      }
+    ],
+    "commands": [
+      {
+        "command": "prReview.startReview",
+        "title": "Start Review",
+        "icon": "$(play)"
+      },
+      {
+        "command": "prReview.enterPrUrl",
+        "title": "Enter PR URL",
+        "icon": "$(link)"
+      },
+      {
+        "command": "prReview.runAiReview",
+        "title": "Run AI Review",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "prReview.submitReview",
+        "title": "Submit PR Review",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "prReview.approveComment",
+        "title": "Approve Comment",
+        "icon": "$(check)"
+      },
+      {
+        "command": "prReview.rejectComment",
+        "title": "Reject Comment",
+        "icon": "$(x)"
+      },
+      {
+        "command": "prReview.editComment",
+        "title": "Edit Comment",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "prReview.clearReview",
+        "title": "Clear Review",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "prReview.refreshFiles",
+        "title": "Refresh Files",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "prReview.startReview",
+          "when": "view == prReviewAssistant",
+          "group": "navigation@1"
+        },
+        {
+          "command": "prReview.runAiReview",
+          "when": "view == prReviewAssistant && prReview.hasFiles",
+          "group": "navigation@2"
+        },
+        {
+          "command": "prReview.submitReview",
+          "when": "view == prReviewAssistant && prReview.hasApprovedComments",
+          "group": "navigation@3"
+        },
+        {
+          "command": "prReview.clearReview",
+          "when": "view == prReviewAssistant && prReview.hasReview",
+          "group": "navigation@4"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "prReview.approveComment",
+          "when": "view == prReviewAssistant && viewItem == comment-pending",
+          "group": "inline@1"
+        },
+        {
+          "command": "prReview.rejectComment",
+          "when": "view == prReviewAssistant && viewItem == comment-pending",
+          "group": "inline@2"
+        },
+        {
+          "command": "prReview.editComment",
+          "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
+          "group": "inline@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "PR Review Assistant",
+      "properties": {
+        "prReview.aiProvider": {
+          "type": "string",
+          "enum": [
+            "anthropic",
+            "openai",
+            "gemini",
+            "groq",
+            "vscode-lm",
+            "none"
+          ],
+          "default": "none",
+          "description": "AI provider for code review. Use 'vscode-lm' to use Cursor/Copilot's built-in models.",
+          "enumDescriptions": [
+            "Anthropic Claude (claude-sonnet-4-20250514)",
+            "OpenAI GPT-4o",
+            "Google Gemini 2.5 Flash",
+            "Groq (llama-3.3-70b)",
+            "VS Code Language Model API (Cursor/Copilot)",
+            "Manual - paste AI output"
+          ]
+        },
+        "prReview.anthropicApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Anthropic API key"
+        },
+        "prReview.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API key"
+        },
+        "prReview.geminiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Google Gemini API key"
+        },
+        "prReview.groqApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Groq API key"
+        },
+        "prReview.githubAuth": {
+          "type": "string",
+          "enum": [
+            "gh-cli",
+            "token"
+          ],
+          "default": "gh-cli",
+          "description": "GitHub authentication method"
+        },
+        "prReview.githubToken": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub personal access token (if not using gh-cli)"
+        },
+        "prReview.defaultBaseBranch": {
+          "type": "string",
+          "default": "main",
+          "description": "Default base branch for comparison"
+        },
+        "prReview.autoRunAi": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically run AI review after loading PR"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "webpack --mode production",
+    "watch": "webpack --mode development --watch",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package": "vsce package --no-dependencies",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "ts-loader": "^9.5.0",
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.18",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google/generative-ai": "^0.21.0",
+    "@octokit/rest": "^20.0.0",
+    "groq-sdk": "^0.8.0",
+    "openai": "^4.77.0"
+  }
+}
