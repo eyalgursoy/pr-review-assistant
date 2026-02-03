@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -229,29 +229,29 @@
         "prReview.aiProvider": {
           "type": "string",
           "enum": [
-            "vscode-lm",
+            "gemini",
             "anthropic",
             "openai",
-            "gemini",
             "groq",
+            "vscode-lm",
             "none"
           ],
           "enumItemLabels": [
-            "Cursor Native (Recommended)",
+            "Google Gemini (Free tier available)",
             "Anthropic Claude",
             "OpenAI GPT-4",
-            "Google Gemini",
-            "Groq",
+            "Groq (Fast & Free)",
+            "VS Code LM (Copilot only)",
             "Manual"
           ],
-          "default": "vscode-lm",
-          "description": "AI provider for code review. 'Cursor Native' is recommended - no API key needed!",
+          "default": "none",
+          "description": "AI provider for code review. Gemini and Groq offer free tiers!",
           "enumDescriptions": [
-            "Uses your Cursor subscription - no API key needed!",
-            "Requires prReview.anthropicApiKey",
-            "Requires prReview.openaiApiKey",
-            "Requires prReview.geminiApiKey",
-            "Requires prReview.groqApiKey",
+            "Google Gemini 2.5 Flash - free tier available at ai.google.dev",
+            "Anthropic Claude - requires API key from console.anthropic.com",
+            "OpenAI GPT-4o - requires API key from platform.openai.com",
+            "Groq llama-3.3-70b - fast & free at console.groq.com",
+            "VS Code Language Model API - works with GitHub Copilot (not Cursor yet)",
             "Paste AI output manually"
           ]
         },
