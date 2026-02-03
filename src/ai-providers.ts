@@ -189,7 +189,7 @@ export async function runAIReview(
   }
 
   const apiKey = getAPIKey(provider);
-  if (!apiKey && provider !== "vscode-lm") {
+  if (!apiKey && provider !== "vscode-lm" && provider !== "cursor-cli") {
     errorProgress(`API key not configured for ${provider}`);
     throw new Error(
       `API key not configured for ${provider}. Set prReview.${provider}ApiKey in settings.`
@@ -259,6 +259,9 @@ IMPORTANT:
         break;
       case "vscode-lm":
         response = await callVSCodeLMStreaming(userPrompt);
+        break;
+      case "cursor-cli":
+        response = await callCursorCLI(userPrompt);
         break;
       default:
         throw new Error(`Unknown provider: ${provider}`);
@@ -835,6 +838,105 @@ async function callVSCodeLMStreaming(prompt: string): Promise<string> {
       if (error.message.includes("rate") || error.message.includes("limit")) {
         throw new Error(
           "Rate limit reached. Please wait a moment and try again."
+        );
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * Cursor CLI Agent
+ * Uses the Cursor CLI `agent` command for code review
+ * Requires: curl https://cursor.com/install -fsSL | bash
+ * No API key needed - uses your Cursor subscription!
+ */
+async function callCursorCLI(prompt: string): Promise<string> {
+  log("Calling Cursor CLI Agent...");
+
+  const { exec } = await import("child_process");
+  const { promisify } = await import("util");
+  const execAsync = promisify(exec);
+
+  // Check if agent CLI is available
+  try {
+    await execAsync("which agent");
+  } catch {
+    throw new Error(
+      "Cursor CLI not found. Install it with: curl https://cursor.com/install -fsSL | bash"
+    );
+  }
+
+  // Create a temporary file with the prompt (to avoid shell escaping issues)
+  const os = await import("os");
+  const fs = await import("fs");
+  const path = await import("path");
+  const tempDir = os.tmpdir();
+  const promptFile = path.join(tempDir, `pr-review-prompt-${Date.now()}.txt`);
+  
+  // Combine system prompt and user prompt
+  const fullPrompt = `${REVIEW_SYSTEM_PROMPT}
+
+${prompt}
+
+IMPORTANT: Respond with ONLY valid JSON. No markdown, no explanations.`;
+
+  fs.writeFileSync(promptFile, fullPrompt, "utf-8");
+  log(`Wrote prompt to temp file: ${promptFile}`);
+
+  try {
+    updateStreamingProgress(0, "Starting Cursor Agent...", "cursor-cli");
+
+    // Run the agent command with the prompt
+    // Using -p for non-interactive mode and --output-format text
+    const { stdout, stderr } = await execAsync(
+      `agent chat "$(cat '${promptFile}')" --output-format text 2>&1`,
+      {
+        timeout: 300000, // 5 minute timeout
+        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+      }
+    );
+
+    log("Cursor CLI stdout:", stdout);
+    if (stderr) {
+      log("Cursor CLI stderr:", stderr);
+    }
+
+    // Clean up temp file
+    fs.unlinkSync(promptFile);
+
+    // Extract JSON from the response
+    const response = stdout || stderr || "";
+    
+    // Try to find JSON in the response
+    const jsonMatch = response.match(/\{[\s\S]*"findings"[\s\S]*\}/);
+    if (jsonMatch) {
+      log("Found JSON in Cursor CLI response");
+      updateStreamingProgress(estimateTokens(jsonMatch[0]), jsonMatch[0], "cursor-cli");
+      return jsonMatch[0];
+    }
+
+    // If no JSON found, return the raw response for parsing
+    updateStreamingProgress(estimateTokens(response), response, "cursor-cli");
+    return response || '{"summary": "Cursor CLI returned no response", "findings": []}';
+  } catch (error) {
+    // Clean up temp file on error
+    try {
+      const fs = await import("fs");
+      fs.unlinkSync(promptFile);
+    } catch {
+      // Ignore cleanup errors
+    }
+
+    logError("Cursor CLI error", error);
+
+    if (error instanceof Error) {
+      if (error.message.includes("ETIMEDOUT") || error.message.includes("timeout")) {
+        throw new Error("Cursor CLI timed out. The review may be too large.");
+      }
+      if (error.message.includes("not found") || error.message.includes("ENOENT")) {
+        throw new Error(
+          "Cursor CLI not found. Install it with: curl https://cursor.com/install -fsSL | bash"
         );
       }
     }

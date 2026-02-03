@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -229,6 +229,7 @@
         "prReview.aiProvider": {
           "type": "string",
           "enum": [
+            "cursor-cli",
             "gemini",
             "anthropic",
             "openai",
@@ -237,16 +238,18 @@
             "none"
           ],
           "enumItemLabels": [
-            "Google Gemini (Free tier available)",
+            "Cursor CLI (Recommended)",
+            "Google Gemini (Free tier)",
             "Anthropic Claude",
             "OpenAI GPT-4",
             "Groq (Fast & Free)",
             "VS Code LM (Copilot only)",
             "Manual"
           ],
-          "default": "none",
-          "description": "AI provider for code review. Gemini and Groq offer free tiers!",
+          "default": "cursor-cli",
+          "description": "AI provider for code review. Cursor CLI uses your Cursor subscription!",
           "enumDescriptions": [
+            "Uses Cursor Agent CLI - no API key needed! Requires: curl https://cursor.com/install -fsSL | bash",
             "Google Gemini 2.5 Flash - free tier available at ai.google.dev",
             "Anthropic Claude - requires API key from console.anthropic.com",
             "OpenAI GPT-4o - requires API key from platform.openai.com",

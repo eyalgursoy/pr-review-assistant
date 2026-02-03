@@ -14,6 +14,7 @@ export type Severity = "critical" | "high" | "medium" | "low";
 export type DiffSide = "LEFT" | "RIGHT";
 
 export type AIProvider =
+  | "cursor-cli"
   | "anthropic"
   | "openai"
   | "gemini"
