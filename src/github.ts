@@ -4,10 +4,15 @@
 
 import { exec } from "child_process";
 import { promisify } from "util";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
 import * as vscode from "vscode";
 import type { PRInfo, ChangedFile, ReviewComment } from "./types";
 
 const execAsync = promisify(exec);
+const writeFileAsync = promisify(fs.writeFile);
+const unlinkAsync = promisify(fs.unlink);
 
 function getWorkspacePath(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -162,7 +167,8 @@ export async function fetchBranchDiff(
  */
 export async function submitReviewComments(
   pr: PRInfo,
-  comments: ReviewComment[]
+  comments: ReviewComment[],
+  summary?: string | null
 ): Promise<{ success: boolean; message: string; url?: string }> {
   const cwd = getWorkspacePath();
 
@@ -177,18 +183,25 @@ export async function submitReviewComments(
     body: c.editedText || formatCommentBody(c),
   }));
 
+  // Use the AI summary or a default message
+  const reviewBody =
+    summary || `AI code review: ${comments.length} issue(s) found.`;
+
   const payload = {
-    body: "AI-assisted code review",
+    body: reviewBody,
     event: "COMMENT",
     comments: reviewComments,
   };
 
+  // Use a temp file to avoid shell escaping issues with complex JSON
+  const tempFile = path.join(os.tmpdir(), `pr-review-${Date.now()}.json`);
+
   try {
-    const jsonPayload = JSON.stringify(payload);
-    const escapedPayload = jsonPayload.replace(/'/g, "'\\''");
+    // Write payload to temp file
+    await writeFileAsync(tempFile, JSON.stringify(payload, null, 2), "utf-8");
 
     const { stdout } = await execAsync(
-      `echo '${escapedPayload}' | gh api repos/${pr.owner}/${pr.repo}/pulls/${pr.number}/reviews --method POST --input -`,
+      `gh api repos/${pr.owner}/${pr.repo}/pulls/${pr.number}/reviews --method POST --input "${tempFile}"`,
       { cwd }
     );
 
@@ -205,7 +218,8 @@ export async function submitReviewComments(
     if (msg.includes("422")) {
       return {
         success: false,
-        message: "Some line numbers may be invalid for this PR diff",
+        message:
+          "Some line numbers may be invalid for this PR diff. The comment may reference lines not in the diff.",
       };
     }
     if (msg.includes("404")) {
@@ -213,6 +227,13 @@ export async function submitReviewComments(
     }
 
     return { success: false, message: `Failed to submit: ${msg}` };
+  } finally {
+    // Clean up temp file
+    try {
+      await unlinkAsync(tempFile);
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 }
 

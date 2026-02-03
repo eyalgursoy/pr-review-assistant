@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -92,6 +92,51 @@
         "command": "prReview.refreshFiles",
         "title": "Refresh Files",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "prReview.showLog",
+        "title": "PR Review: Show Log",
+        "icon": "$(output)"
+      },
+      {
+        "command": "prReview.comment.approve",
+        "title": "Approve",
+        "icon": "$(check)"
+      },
+      {
+        "command": "prReview.comment.reject",
+        "title": "Reject",
+        "icon": "$(x)"
+      },
+      {
+        "command": "prReview.comment.edit",
+        "title": "Edit",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "prReview.comment.save",
+        "title": "Save",
+        "icon": "$(save)"
+      },
+      {
+        "command": "prReview.comment.cancel",
+        "title": "Cancel",
+        "icon": "$(close)"
+      },
+      {
+        "command": "prReview.comment.delete",
+        "title": "Dismiss",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "prReview.comment.approveAll",
+        "title": "Approve All Pending",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "prReview.comment.rejectAll",
+        "title": "Reject All Pending",
+        "icon": "$(close-all)"
       }
     ],
     "menus": {
@@ -132,6 +177,54 @@
           "command": "prReview.editComment",
           "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
           "group": "inline@3"
+        }
+      ],
+      "comments/commentThread/title": [
+        {
+          "command": "prReview.comment.approve",
+          "group": "inline@1",
+          "when": "commentController == prReviewAssistant && commentThread =~ /prReviewThread-pending/"
+        },
+        {
+          "command": "prReview.comment.reject",
+          "group": "inline@2",
+          "when": "commentController == prReviewAssistant && commentThread =~ /prReviewThread-pending/"
+        },
+        {
+          "command": "prReview.comment.delete",
+          "group": "inline@3",
+          "when": "commentController == prReviewAssistant"
+        }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "prReview.comment.approveAll",
+          "group": "1_actions@1",
+          "when": "commentController == prReviewAssistant"
+        },
+        {
+          "command": "prReview.comment.rejectAll",
+          "group": "1_actions@2",
+          "when": "commentController == prReviewAssistant"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "prReview.comment.edit",
+          "group": "inline@1",
+          "when": "commentController == prReviewAssistant"
+        }
+      ],
+      "comments/comment/context": [
+        {
+          "command": "prReview.comment.save",
+          "group": "inline@1",
+          "when": "commentController == prReviewAssistant && commentIsEmpty == false"
+        },
+        {
+          "command": "prReview.comment.cancel",
+          "group": "inline@2",
+          "when": "commentController == prReviewAssistant"
         }
       ]
     },
@@ -202,6 +295,11 @@
           "type": "boolean",
           "default": false,
           "description": "Automatically run AI review after loading PR"
+        },
+        "prReview.showLogPrompt": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show 'View Log' prompt after AI review completes (useful for debugging)"
         }
       }
     }

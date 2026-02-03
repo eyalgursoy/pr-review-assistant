@@ -11,6 +11,8 @@ import {
   createCommentDecorations,
   updateDecorations,
 } from "./codelens";
+import { initCommentController, disposeCommentThreads } from "./comments";
+import { initLogger, log, logSection, showLog } from "./logger";
 import {
   getState,
   resetState,
@@ -20,6 +22,8 @@ import {
   setLoading,
   setError,
   addComments,
+  setSummary,
+  getSummary,
   updateCommentStatus,
   updateCommentText,
   getApprovedComments,
@@ -41,7 +45,9 @@ let treeProvider: PRReviewTreeProvider;
 let decorations: ReturnType<typeof createCommentDecorations>;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log("PR Review Assistant activated");
+  // Initialize logger first
+  initLogger(context);
+  log("PR Review Assistant activated");
 
   // Create tree view provider
   treeProvider = new PRReviewTreeProvider();
@@ -51,7 +57,10 @@ export function activate(context: vscode.ExtensionContext) {
   });
   context.subscriptions.push(treeView);
 
-  // Create CodeLens provider
+  // Initialize Comments API (native comment threads)
+  initCommentController(context);
+
+  // Create CodeLens provider (simplified - just shows line indicators)
   const codeLensProvider = new ReviewCodeLensProvider();
   context.subscriptions.push(
     vscode.languages.registerCodeLensProvider(
@@ -126,32 +135,43 @@ function registerCommands(context: vscode.ExtensionContext) {
     })
   );
 
-  // Approve Comment
+  // Approve Comment (handles both string ID and TreeItemData from tree view)
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "prReview.approveComment",
-      (commentId: string) => {
-        updateCommentStatus(commentId, "approved");
+      (arg: string | { comment?: ReviewComment }) => {
+        const commentId = typeof arg === "string" ? arg : arg?.comment?.id;
+        if (commentId) {
+          updateCommentStatus(commentId, "approved");
+          vscode.window.showInformationMessage("Comment approved ✓");
+        }
       }
     )
   );
 
-  // Reject Comment
+  // Reject Comment (handles both string ID and TreeItemData from tree view)
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "prReview.rejectComment",
-      (commentId: string) => {
-        updateCommentStatus(commentId, "rejected");
+      (arg: string | { comment?: ReviewComment }) => {
+        const commentId = typeof arg === "string" ? arg : arg?.comment?.id;
+        if (commentId) {
+          updateCommentStatus(commentId, "rejected");
+          vscode.window.showInformationMessage("Comment rejected ✗");
+        }
       }
     )
   );
 
-  // Edit Comment
+  // Edit Comment (handles both string ID and TreeItemData from tree view)
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "prReview.editComment",
-      async (commentId: string) => {
-        await editComment(commentId);
+      async (arg: string | { comment?: ReviewComment }) => {
+        const commentId = typeof arg === "string" ? arg : arg?.comment?.id;
+        if (commentId) {
+          await editComment(commentId);
+        }
       }
     )
   );
@@ -197,6 +217,13 @@ function registerCommands(context: vscode.ExtensionContext) {
       if (state.pr) {
         await loadPRFiles(state.pr.owner, state.pr.repo, state.pr.number);
       }
+    })
+  );
+
+  // Show Log
+  context.subscriptions.push(
+    vscode.commands.registerCommand("prReview.showLog", () => {
+      showLog();
     })
   );
 }
@@ -296,6 +323,11 @@ async function loadPRFiles(owner: string, repo: string, prNumber: number) {
 async function runReview() {
   const state = getState();
 
+  logSection("STARTING AI REVIEW");
+  log("PR Info:", state.pr);
+  log("Diff length:", state.diff?.length || 0);
+  log("Number of files:", state.files.length);
+
   if (!state.pr) {
     vscode.window.showWarningMessage("No PR loaded. Start a review first.");
     return;
@@ -307,6 +339,8 @@ async function runReview() {
   }
 
   const provider = getAIProvider();
+  log("AI Provider:", provider);
+
   if (provider === "none") {
     const configure = await vscode.window.showWarningMessage(
       "No AI provider configured.",
@@ -340,17 +374,44 @@ async function runReview() {
           state.diff
         );
 
-        const comments = await runAIReview(state.diff, template);
+        log("Review template length:", template.length);
 
-        if (comments.length === 0) {
+        const result = await runAIReview(state.diff, template);
+
+        logSection("ADDING COMMENTS TO STATE");
+        log(`Summary: ${result.summary}`);
+        log(`Received ${result.comments.length} comments from AI`);
+
+        // Store the summary
+        setSummary(result.summary);
+
+        if (result.comments.length === 0) {
           vscode.window.showInformationMessage(
-            "AI found no issues in this PR!"
+            result.summary || "AI found no issues in this PR!"
           );
         } else {
-          addComments(comments);
-          vscode.window.showInformationMessage(
-            `AI found ${comments.length} issue(s) to review`
-          );
+          addComments(result.comments);
+          log(`Added ${result.comments.length} comments to state`);
+
+          // Check if user wants to see log prompt
+          const config = vscode.workspace.getConfiguration("prReview");
+          const showLogPrompt = config.get<boolean>("showLogPrompt", false);
+
+          if (showLogPrompt) {
+            // Show log prompt for debugging
+            const viewLog = await vscode.window.showInformationMessage(
+              `AI found ${result.comments.length} issue(s) to review`,
+              "View Log"
+            );
+            if (viewLog === "View Log") {
+              showLog();
+            }
+          } else {
+            // Just show a simple notification without blocking
+            vscode.window.showInformationMessage(
+              `AI found ${result.comments.length} issue(s) to review`
+            );
+          }
         }
       }
     );
@@ -390,6 +451,7 @@ async function submitReview() {
   if (confirm !== "Submit") return;
 
   try {
+    const summary = getSummary();
     const result = await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
@@ -397,7 +459,7 @@ async function submitReview() {
         cancellable: false,
       },
       async () => {
-        return await submitReviewComments(state.pr!, approved);
+        return await submitReviewComments(state.pr!, approved, summary);
       }
     );
 
@@ -489,4 +551,5 @@ function showCommentDetails(comment: ReviewComment) {
 
 export function deactivate() {
   console.log("PR Review Assistant deactivated");
+  disposeCommentThreads();
 }

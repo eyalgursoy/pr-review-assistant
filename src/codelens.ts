@@ -1,5 +1,8 @@
 /**
- * CodeLens provider for inline review comments
+ * CodeLens provider for inline review comments (simplified)
+ *
+ * Now that we use the Comments API for the main UI, CodeLens just shows
+ * a brief indicator that can be clicked to expand the comment thread.
  */
 
 import * as vscode from "vscode";
@@ -35,56 +38,19 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
       );
       const range = new vscode.Range(line, 0, line, 0);
 
-      // Main comment lens
+      // Simple indicator - clicking focuses the comment thread
       const severityEmoji = this.getSeverityEmoji(comment.severity);
       const statusIcon = this.getStatusIcon(comment.status);
+      const shortIssue = this.truncate(comment.issue, 80);
 
       codeLenses.push(
         new vscode.CodeLens(range, {
-          title: `${statusIcon} ${severityEmoji} ${comment.issue}`,
-          command: "prReview.showCommentDetails",
+          title: `${statusIcon} ${severityEmoji} ${shortIssue}`,
+          command: "prReview.goToComment",
           arguments: [comment],
-          tooltip: this.getTooltip(comment),
+          tooltip: `Click to view comment details\n\n${comment.issue}`,
         })
       );
-
-      // Action buttons for pending comments
-      if (comment.status === "pending") {
-        codeLenses.push(
-          new vscode.CodeLens(range, {
-            title: "✓ Approve",
-            command: "prReview.approveComment",
-            arguments: [comment.id],
-          })
-        );
-
-        codeLenses.push(
-          new vscode.CodeLens(range, {
-            title: "✗ Reject",
-            command: "prReview.rejectComment",
-            arguments: [comment.id],
-          })
-        );
-
-        codeLenses.push(
-          new vscode.CodeLens(range, {
-            title: "✎ Edit",
-            command: "prReview.editComment",
-            arguments: [comment.id],
-          })
-        );
-      }
-
-      // Show suggestion if available
-      if (comment.suggestion) {
-        codeLenses.push(
-          new vscode.CodeLens(range, {
-            title: `💡 ${this.truncate(comment.suggestion, 60)}`,
-            command: "prReview.showSuggestion",
-            arguments: [comment],
-          })
-        );
-      }
     }
 
     return codeLenses;
@@ -115,15 +81,6 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
       rejected: "✗",
     };
     return icons[status] || "○";
-  }
-
-  private getTooltip(comment: ReviewComment): string {
-    let tooltip = `[${comment.severity.toUpperCase()}] ${comment.issue}`;
-    if (comment.suggestion) {
-      tooltip += `\n\nSuggestion: ${comment.suggestion}`;
-    }
-    tooltip += `\n\nStatus: ${comment.status}`;
-    return tooltip;
   }
 
   private truncate(str: string, maxLength: number): string {

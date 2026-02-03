@@ -61,6 +61,7 @@ export interface ReviewState {
   pr: PRInfo | null;
   files: ChangedFile[];
   diff: string;
+  summary: string | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -69,6 +70,7 @@ export interface ReviewState {
  * Expected JSON output from AI
  */
 export interface AIReviewOutput {
+  summary: string;
   findings: Array<{
     file: string;
     line: number;

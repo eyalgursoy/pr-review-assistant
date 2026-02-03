@@ -15,6 +15,7 @@ let state: ReviewState = {
   pr: null,
   files: [],
   diff: "",
+  summary: null,
   isLoading: false,
   error: null,
 };
@@ -38,11 +39,27 @@ export function resetState(): void {
     pr: null,
     files: [],
     diff: "",
+    summary: null,
     isLoading: false,
     error: null,
   };
   updateContextKeys();
   stateChangeEmitter.fire(state);
+}
+
+/**
+ * Set the review summary
+ */
+export function setSummary(summary: string | null): void {
+  state = { ...state, summary };
+  stateChangeEmitter.fire(state);
+}
+
+/**
+ * Get the review summary
+ */
+export function getSummary(): string | null {
+  return state.summary;
 }
 
 /**
