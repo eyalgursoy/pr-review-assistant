@@ -104,15 +104,15 @@ export async function fetchData() {
 
 Open Settings (Cmd+,) and search for `prReview`:
 
-| Setting                      | Description                      | Default       |
-| ---------------------------- | -------------------------------- | ------------- |
-| `prReview.aiProvider`        | AI provider for code review      | `cursor-cli`  |
-| `prReview.anthropicApiKey`   | Anthropic API key                | -             |
-| `prReview.openaiApiKey`      | OpenAI API key                   | -             |
-| `prReview.geminiApiKey`      | Google Gemini API key            | -             |
-| `prReview.groqApiKey`        | Groq API key                     | -             |
-| `prReview.githubAuth`        | GitHub auth method               | `gh-cli`      |
-| `prReview.autoRunAi`         | Auto-run AI after loading PR     | `false`       |
+| Setting                    | Description                  | Default      |
+| -------------------------- | ---------------------------- | ------------ |
+| `prReview.aiProvider`      | AI provider for code review  | `cursor-cli` |
+| `prReview.anthropicApiKey` | Anthropic API key            | -            |
+| `prReview.openaiApiKey`    | OpenAI API key               | -            |
+| `prReview.geminiApiKey`    | Google Gemini API key        | -            |
+| `prReview.groqApiKey`      | Groq API key                 | -            |
+| `prReview.githubAuth`      | GitHub auth method           | `gh-cli`     |
+| `prReview.autoRunAi`       | Auto-run AI after loading PR | `false`      |
 
 ### AI Provider Setup
 

@@ -853,45 +853,116 @@ async function callVSCodeLMStreaming(prompt: string): Promise<string> {
 }
 
 /**
- * Check if Cursor CLI is installed and offer to install if not
+ * Find the Cursor CLI agent binary
+ * Checks multiple possible locations since PATH may not be set correctly in VS Code
  */
-async function ensureCursorCLIInstalled(): Promise<boolean> {
+async function findAgentBinary(): Promise<string | null> {
   const { exec } = await import("child_process");
   const { promisify } = await import("util");
+  const fs = await import("fs");
+  const path = await import("path");
+  const os = await import("os");
   const execAsync = promisify(exec);
 
+  const homeDir = os.homedir();
+
+  // Possible locations for the agent binary
+  const possiblePaths = [
+    path.join(homeDir, ".cursor", "bin", "agent"),
+    path.join(homeDir, ".cursor", "cli", "agent"),
+    path.join(homeDir, ".local", "bin", "agent"),
+    path.join(homeDir, "bin", "agent"),
+    "/usr/local/bin/agent",
+    "/opt/homebrew/bin/agent",
+  ];
+
+  // Check each possible path
+  for (const agentPath of possiblePaths) {
+    if (fs.existsSync(agentPath)) {
+      log(`Found agent at: ${agentPath}`);
+      return agentPath;
+    }
+  }
+
+  // Try which command as fallback (works if PATH is set correctly)
   try {
-    await execAsync("which agent");
-    return true;
+    const { stdout } = await execAsync("which agent 2>/dev/null");
+    const foundPath = stdout.trim();
+    if (foundPath && fs.existsSync(foundPath)) {
+      log(`Found agent via which: ${foundPath}`);
+      return foundPath;
+    }
   } catch {
+    // which failed
+  }
+
+  // Try sourcing shell config and then which
+  try {
+    const { stdout } = await execAsync(
+      'source ~/.zshrc 2>/dev/null; which agent 2>/dev/null || source ~/.bashrc 2>/dev/null; which agent 2>/dev/null',
+      { shell: '/bin/zsh' }
+    );
+    const foundPath = stdout.trim();
+    if (foundPath && fs.existsSync(foundPath)) {
+      log(`Found agent after sourcing shell config: ${foundPath}`);
+      return foundPath;
+    }
+  } catch {
+    // shell sourcing failed
+  }
+
+  log("Agent binary not found in any location");
+  return null;
+}
+
+/**
+ * Check if Cursor CLI is installed and ready to use
+ * Returns the path to the agent binary, or null if not ready
+ */
+async function ensureCursorCLIInstalled(): Promise<string | null> {
+  const agentPath = await findAgentBinary();
+
+  if (!agentPath) {
     // CLI not found - prompt user to install
     const install = await vscode.window.showErrorMessage(
-      "Cursor CLI is not installed. It's required for the Cursor CLI provider.",
+      "Cursor CLI not found. Install it to use your Cursor subscription for reviews.",
       "Install Now",
       "Open Docs",
       "Use Different Provider"
     );
 
     if (install === "Install Now") {
-      // Open terminal with install command
-      const terminal = vscode.window.createTerminal("Cursor CLI Install");
+      const terminal = vscode.window.createTerminal("Cursor CLI Setup");
       terminal.show();
+      terminal.sendText("# Installing Cursor CLI...");
       terminal.sendText("curl https://cursor.com/install -fsSL | bash");
-      
+      terminal.sendText("");
+      terminal.sendText("# After installation completes:");
+      terminal.sendText("# 1. Run: source ~/.zshrc  (or restart terminal)");
+      terminal.sendText("# 2. Run: agent login");
+      terminal.sendText("# 3. Then try the PR review again!");
+
       vscode.window.showInformationMessage(
-        "Installing Cursor CLI... After installation completes, please run the review again."
+        "Follow the terminal instructions. After 'agent login', try the review again."
       );
-      return false;
+      return null;
     } else if (install === "Open Docs") {
       vscode.env.openExternal(vscode.Uri.parse("https://cursor.com/cli"));
-      return false;
+      return null;
     } else if (install === "Use Different Provider") {
-      vscode.commands.executeCommand("workbench.action.openSettings", "prReview.aiProvider");
-      return false;
+      vscode.commands.executeCommand(
+        "workbench.action.openSettings",
+        "prReview.aiProvider"
+      );
+      return null;
     }
-    
-    return false;
+
+    return null;
   }
+
+  // CLI found - return the path
+  log(`Using Cursor CLI at: ${agentPath}`);
+  return agentPath;
 }
 
 /**
@@ -904,9 +975,11 @@ async function callCursorCLI(prompt: string): Promise<string> {
   log("Calling Cursor CLI Agent...");
 
   // Check if CLI is installed, offer to install if not
-  const isInstalled = await ensureCursorCLIInstalled();
-  if (!isInstalled) {
-    throw new Error("Cursor CLI installation required. Please install and try again.");
+  const agentPath = await ensureCursorCLIInstalled();
+  if (!agentPath) {
+    throw new Error(
+      "Cursor CLI setup required. Please install/login and try again."
+    );
   }
 
   const { exec } = await import("child_process");
@@ -933,10 +1006,10 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no explanations.`;
   try {
     updateStreamingProgress(0, "Starting Cursor Agent...", "cursor-cli");
 
-    // Run the agent command with the prompt
-    // Using -p for non-interactive mode and --output-format text
+    // Run the agent command with the full path
+    // Using --output-format text for programmatic output
     const { stdout, stderr } = await execAsync(
-      `agent chat "$(cat '${promptFile}')" --output-format text 2>&1`,
+      `"${agentPath}" chat "$(cat '${promptFile}')" --output-format text 2>&1`,
       {
         timeout: 300000, // 5 minute timeout
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer
@@ -983,22 +1056,40 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no explanations.`;
 
     logError("Cursor CLI error", error);
 
-    if (error instanceof Error) {
-      if (
-        error.message.includes("ETIMEDOUT") ||
-        error.message.includes("timeout")
-      ) {
-        throw new Error("Cursor CLI timed out. The review may be too large.");
-      }
-      if (
-        error.message.includes("not found") ||
-        error.message.includes("ENOENT")
-      ) {
-        throw new Error(
-          "Cursor CLI not found. Install it with: curl https://cursor.com/install -fsSL | bash"
-        );
-      }
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
+    // Handle specific error cases
+    if (errorMsg.includes("ETIMEDOUT") || errorMsg.includes("timeout")) {
+      throw new Error("Cursor CLI timed out. The review may be too large.");
     }
+    
+    if (errorMsg.includes("not found") || errorMsg.includes("ENOENT")) {
+      throw new Error(
+        "Cursor CLI not found. Install it with: curl https://cursor.com/install -fsSL | bash"
+      );
+    }
+
+    if (errorMsg.includes("login") || errorMsg.includes("auth") || errorMsg.includes("unauthorized")) {
+      // Need to login
+      const action = await vscode.window.showErrorMessage(
+        "Cursor CLI requires login. Please authenticate first.",
+        "Open Terminal to Login"
+      );
+      if (action === "Open Terminal to Login") {
+        const terminal = vscode.window.createTerminal("Cursor CLI Login");
+        terminal.show();
+        terminal.sendText(`"${agentPath}" login`);
+      }
+      throw new Error("Please login to Cursor CLI and try again.");
+    }
+
+    if (errorMsg.includes("trust") || errorMsg.includes("workspace") || errorMsg.includes("directory")) {
+      // Workspace trust issue
+      throw new Error(
+        "Cursor CLI needs workspace approval. Run 'agent chat' in terminal first to approve this directory."
+      );
+    }
+
     throw error;
   }
 }
