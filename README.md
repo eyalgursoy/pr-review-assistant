@@ -5,10 +5,11 @@ AI-powered PR code review extension for VS Code / Cursor. Lives in the **Source 
 ## Features
 
 - **Source Control Integration**: Panel in the SCM sidebar (like GitLens)
-- **AI Code Review**: Supports Claude, GPT-4o, Gemini 2.0, Groq, and VS Code Language Model API
+- **AI Code Review**: Supports Cursor CLI, Claude, GPT-4, Gemini, Groq, and more
 - **Inline Annotations**: CodeLens shows comments directly on code lines
 - **GitHub Integration**: Submit approved comments directly to PRs
 - **One-Click Workflow**: Start review → AI analyzes → Review comments → Submit
+- **No API Key Needed**: Use Cursor CLI with your existing Cursor subscription!
 
 ## Installation
 
@@ -16,10 +17,10 @@ AI-powered PR code review extension for VS Code / Cursor. Lives in the **Source 
 
 ```bash
 # Install in Cursor
-cursor --install-extension pr-review-assistant-0.2.0.vsix
+cursor --install-extension pr-review-assistant-0.8.0.vsix
 
 # Or in VS Code
-code --install-extension pr-review-assistant-0.2.0.vsix
+code --install-extension pr-review-assistant-0.8.0.vsix
 ```
 
 ### Prerequisites
@@ -34,12 +35,20 @@ code --install-extension pr-review-assistant-0.2.0.vsix
    gh auth login
    ```
 
-2. **AI Provider** (optional) - Configure one for automatic code review:
-   - Anthropic Claude
-   - OpenAI GPT-4o
-   - Google Gemini 2.0
-   - Groq (Llama 3.3)
-   - VS Code Language Model (Cursor/Copilot built-in)
+2. **Cursor CLI** (Recommended) - Uses your Cursor subscription, no API key needed!
+
+   ```bash
+   # Install Cursor CLI
+   curl https://cursor.com/install -fsSL | bash
+   ```
+
+   The extension will prompt you to install this automatically if not found.
+
+3. **Alternative AI Providers** - If not using Cursor CLI:
+   - Google Gemini (free tier available at ai.google.dev)
+   - Groq (fast & free at console.groq.com)
+   - Anthropic Claude (console.anthropic.com)
+   - OpenAI GPT-4 (platform.openai.com)
 
 ## Usage
 
@@ -95,39 +104,34 @@ export async function fetchData() {
 
 Open Settings (Cmd+,) and search for `prReview`:
 
-| Setting                      | Description                      | Options                                                      |
-| ---------------------------- | -------------------------------- | ------------------------------------------------------------ |
-| `prReview.aiProvider`        | AI provider for code review      | `anthropic`, `openai`, `gemini`, `groq`, `vscode-lm`, `none` |
-| `prReview.anthropicApiKey`   | Anthropic API key                | -                                                            |
-| `prReview.openaiApiKey`      | OpenAI API key                   | -                                                            |
-| `prReview.geminiApiKey`      | Google Gemini API key            | -                                                            |
-| `prReview.groqApiKey`        | Groq API key                     | -                                                            |
-| `prReview.githubAuth`        | GitHub auth method               | `gh-cli` (default), `token`                                  |
-| `prReview.githubToken`       | GitHub PAT (if not using gh-cli) | -                                                            |
-| `prReview.autoRunAi`         | Auto-run AI after loading PR     | `true` / `false`                                             |
-| `prReview.defaultBaseBranch` | Default base branch              | `main`                                                       |
+| Setting                      | Description                      | Default       |
+| ---------------------------- | -------------------------------- | ------------- |
+| `prReview.aiProvider`        | AI provider for code review      | `cursor-cli`  |
+| `prReview.anthropicApiKey`   | Anthropic API key                | -             |
+| `prReview.openaiApiKey`      | OpenAI API key                   | -             |
+| `prReview.geminiApiKey`      | Google Gemini API key            | -             |
+| `prReview.groqApiKey`        | Groq API key                     | -             |
+| `prReview.githubAuth`        | GitHub auth method               | `gh-cli`      |
+| `prReview.autoRunAi`         | Auto-run AI after loading PR     | `false`       |
 
 ### AI Provider Setup
 
-**Anthropic Claude** (Recommended)
+**Cursor CLI** (Recommended - No API Key!)
+
+```bash
+# One-time setup
+curl https://cursor.com/install -fsSL | bash
+```
 
 ```json
 {
-  "prReview.aiProvider": "anthropic",
-  "prReview.anthropicApiKey": "sk-ant-..."
+  "prReview.aiProvider": "cursor-cli"
 }
 ```
 
-**OpenAI GPT-4o**
+Uses your existing Cursor subscription. Works with Claude, GPT-5, Gemini, and more!
 
-```json
-{
-  "prReview.aiProvider": "openai",
-  "prReview.openaiApiKey": "sk-..."
-}
-```
-
-**Google Gemini 2.0**
+**Google Gemini** (Free tier available)
 
 ```json
 {
@@ -136,7 +140,9 @@ Open Settings (Cmd+,) and search for `prReview`:
 }
 ```
 
-**Groq (Fast & Free tier)**
+Get a free API key at [ai.google.dev](https://ai.google.dev)
+
+**Groq** (Fast & Free)
 
 ```json
 {
@@ -145,15 +151,25 @@ Open Settings (Cmd+,) and search for `prReview`:
 }
 ```
 
-**VS Code Language Model (Cursor/Copilot)**
+Get a free API key at [console.groq.com](https://console.groq.com)
+
+**Anthropic Claude**
 
 ```json
 {
-  "prReview.aiProvider": "vscode-lm"
+  "prReview.aiProvider": "anthropic",
+  "prReview.anthropicApiKey": "sk-ant-..."
 }
 ```
 
-No API key needed - uses Cursor's built-in AI or GitHub Copilot.
+**OpenAI GPT-4**
+
+```json
+{
+  "prReview.aiProvider": "openai",
+  "prReview.openaiApiKey": "sk-..."
+}
+```
 
 ## Commands
 

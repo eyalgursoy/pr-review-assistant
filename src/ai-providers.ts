@@ -775,10 +775,12 @@ async function callVSCodeLMStreaming(prompt: string): Promise<string> {
 
   // Get all available models - Cursor exposes its models through this API
   const allModels = await vscode.lm.selectChatModels({});
-  
+
   log(`Found ${allModels.length} available language models:`);
   allModels.forEach((m, i) => {
-    log(`  ${i + 1}. ${m.name || m.id} (vendor: ${m.vendor}, family: ${m.family})`);
+    log(
+      `  ${i + 1}. ${m.name || m.id} (vendor: ${m.vendor}, family: ${m.family})`
+    );
   });
 
   if (allModels.length === 0) {
@@ -788,18 +790,20 @@ async function callVSCodeLMStreaming(prompt: string): Promise<string> {
   }
 
   // Prefer Claude models if available (Cursor's default), then GPT, then any
-  let model = allModels.find(m => 
-    m.family?.toLowerCase().includes('claude') || 
-    m.name?.toLowerCase().includes('claude')
+  let model = allModels.find(
+    (m) =>
+      m.family?.toLowerCase().includes("claude") ||
+      m.name?.toLowerCase().includes("claude")
   );
-  
+
   if (!model) {
-    model = allModels.find(m => 
-      m.family?.toLowerCase().includes('gpt') || 
-      m.name?.toLowerCase().includes('gpt')
+    model = allModels.find(
+      (m) =>
+        m.family?.toLowerCase().includes("gpt") ||
+        m.name?.toLowerCase().includes("gpt")
     );
   }
-  
+
   if (!model) {
     model = allModels[0];
   }
@@ -828,9 +832,12 @@ async function callVSCodeLMStreaming(prompt: string): Promise<string> {
     return fullResponse || '{"summary": "No response", "findings": []}';
   } catch (error) {
     logError("Cursor Native AI error", error);
-    
+
     if (error instanceof Error) {
-      if (error.message.includes("denied") || error.message.includes("permission")) {
+      if (
+        error.message.includes("denied") ||
+        error.message.includes("permission")
+      ) {
         throw new Error(
           "Permission denied. Please allow PR Review Assistant to use Cursor AI when prompted."
         );
@@ -846,6 +853,48 @@ async function callVSCodeLMStreaming(prompt: string): Promise<string> {
 }
 
 /**
+ * Check if Cursor CLI is installed and offer to install if not
+ */
+async function ensureCursorCLIInstalled(): Promise<boolean> {
+  const { exec } = await import("child_process");
+  const { promisify } = await import("util");
+  const execAsync = promisify(exec);
+
+  try {
+    await execAsync("which agent");
+    return true;
+  } catch {
+    // CLI not found - prompt user to install
+    const install = await vscode.window.showErrorMessage(
+      "Cursor CLI is not installed. It's required for the Cursor CLI provider.",
+      "Install Now",
+      "Open Docs",
+      "Use Different Provider"
+    );
+
+    if (install === "Install Now") {
+      // Open terminal with install command
+      const terminal = vscode.window.createTerminal("Cursor CLI Install");
+      terminal.show();
+      terminal.sendText("curl https://cursor.com/install -fsSL | bash");
+      
+      vscode.window.showInformationMessage(
+        "Installing Cursor CLI... After installation completes, please run the review again."
+      );
+      return false;
+    } else if (install === "Open Docs") {
+      vscode.env.openExternal(vscode.Uri.parse("https://cursor.com/cli"));
+      return false;
+    } else if (install === "Use Different Provider") {
+      vscode.commands.executeCommand("workbench.action.openSettings", "prReview.aiProvider");
+      return false;
+    }
+    
+    return false;
+  }
+}
+
+/**
  * Cursor CLI Agent
  * Uses the Cursor CLI `agent` command for code review
  * Requires: curl https://cursor.com/install -fsSL | bash
@@ -854,18 +903,15 @@ async function callVSCodeLMStreaming(prompt: string): Promise<string> {
 async function callCursorCLI(prompt: string): Promise<string> {
   log("Calling Cursor CLI Agent...");
 
+  // Check if CLI is installed, offer to install if not
+  const isInstalled = await ensureCursorCLIInstalled();
+  if (!isInstalled) {
+    throw new Error("Cursor CLI installation required. Please install and try again.");
+  }
+
   const { exec } = await import("child_process");
   const { promisify } = await import("util");
   const execAsync = promisify(exec);
-
-  // Check if agent CLI is available
-  try {
-    await execAsync("which agent");
-  } catch {
-    throw new Error(
-      "Cursor CLI not found. Install it with: curl https://cursor.com/install -fsSL | bash"
-    );
-  }
 
   // Create a temporary file with the prompt (to avoid shell escaping issues)
   const os = await import("os");
@@ -873,7 +919,7 @@ async function callCursorCLI(prompt: string): Promise<string> {
   const path = await import("path");
   const tempDir = os.tmpdir();
   const promptFile = path.join(tempDir, `pr-review-prompt-${Date.now()}.txt`);
-  
+
   // Combine system prompt and user prompt
   const fullPrompt = `${REVIEW_SYSTEM_PROMPT}
 
@@ -907,18 +953,25 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no explanations.`;
 
     // Extract JSON from the response
     const response = stdout || stderr || "";
-    
+
     // Try to find JSON in the response
     const jsonMatch = response.match(/\{[\s\S]*"findings"[\s\S]*\}/);
     if (jsonMatch) {
       log("Found JSON in Cursor CLI response");
-      updateStreamingProgress(estimateTokens(jsonMatch[0]), jsonMatch[0], "cursor-cli");
+      updateStreamingProgress(
+        estimateTokens(jsonMatch[0]),
+        jsonMatch[0],
+        "cursor-cli"
+      );
       return jsonMatch[0];
     }
 
     // If no JSON found, return the raw response for parsing
     updateStreamingProgress(estimateTokens(response), response, "cursor-cli");
-    return response || '{"summary": "Cursor CLI returned no response", "findings": []}';
+    return (
+      response ||
+      '{"summary": "Cursor CLI returned no response", "findings": []}'
+    );
   } catch (error) {
     // Clean up temp file on error
     try {
@@ -931,10 +984,16 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no explanations.`;
     logError("Cursor CLI error", error);
 
     if (error instanceof Error) {
-      if (error.message.includes("ETIMEDOUT") || error.message.includes("timeout")) {
+      if (
+        error.message.includes("ETIMEDOUT") ||
+        error.message.includes("timeout")
+      ) {
         throw new Error("Cursor CLI timed out. The review may be too large.");
       }
-      if (error.message.includes("not found") || error.message.includes("ENOENT")) {
+      if (
+        error.message.includes("not found") ||
+        error.message.includes("ENOENT")
+      ) {
         throw new Error(
           "Cursor CLI not found. Install it with: curl https://cursor.com/install -fsSL | bash"
         );
