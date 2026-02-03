@@ -1004,7 +1004,11 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no code blocks, no explana
   log(`Wrote prompt to temp file: ${promptFile}`);
 
   try {
-    updateStreamingProgress(0, "Waiting for Cursor Agent (30-60s)...", "cursor-cli");
+    updateStreamingProgress(
+      0,
+      "Waiting for Cursor Agent (30-60s)...",
+      "cursor-cli"
+    );
     log("Sending prompt to Cursor Agent (this may take 30-60 seconds)...");
 
     // Run the agent command with -p (print mode) for non-interactive use
