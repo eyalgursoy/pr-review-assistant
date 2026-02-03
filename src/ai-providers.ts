@@ -756,36 +756,52 @@ async function callGroqStreaming(
 }
 
 /**
- * VS Code Language Model API (Cursor/Copilot) with Streaming
+ * VS Code Language Model API with Streaming
+ * Works with Cursor's native AI - the recommended option for Cursor users!
+ * No API key needed - uses your existing Cursor subscription.
  */
 async function callVSCodeLMStreaming(prompt: string): Promise<string> {
-  log("Calling VS Code Language Model API with streaming...");
+  log("Calling VS Code Language Model API (Cursor Native AI)...");
 
   // Check if Language Model API is available
   if (!vscode.lm) {
     throw new Error(
-      "VS Code Language Model API not available. Make sure you have Copilot or Cursor AI enabled."
+      "VS Code Language Model API not available. Make sure you're using Cursor IDE with AI enabled."
     );
   }
 
-  // Get available models
-  const models = await vscode.lm.selectChatModels({
-    vendor: "copilot",
+  // Get all available models - Cursor exposes its models through this API
+  const allModels = await vscode.lm.selectChatModels({});
+  
+  log(`Found ${allModels.length} available language models:`);
+  allModels.forEach((m, i) => {
+    log(`  ${i + 1}. ${m.name || m.id} (vendor: ${m.vendor}, family: ${m.family})`);
   });
 
-  if (models.length === 0) {
-    // Try without vendor filter
-    const allModels = await vscode.lm.selectChatModels({});
-    if (allModels.length === 0) {
-      throw new Error(
-        "No language models available. Enable GitHub Copilot or Cursor AI."
-      );
-    }
-    models.push(...allModels);
+  if (allModels.length === 0) {
+    throw new Error(
+      "No language models available. Make sure Cursor AI is enabled in your settings."
+    );
   }
 
-  const model = models[0];
-  log(`Using model: ${model.name || model.id}`);
+  // Prefer Claude models if available (Cursor's default), then GPT, then any
+  let model = allModels.find(m => 
+    m.family?.toLowerCase().includes('claude') || 
+    m.name?.toLowerCase().includes('claude')
+  );
+  
+  if (!model) {
+    model = allModels.find(m => 
+      m.family?.toLowerCase().includes('gpt') || 
+      m.name?.toLowerCase().includes('gpt')
+    );
+  }
+  
+  if (!model) {
+    model = allModels[0];
+  }
+
+  log(`Selected model: ${model.name || model.id}`);
 
   const messages = [
     vscode.LanguageModelChatMessage.User(
@@ -793,17 +809,35 @@ async function callVSCodeLMStreaming(prompt: string): Promise<string> {
     ),
   ];
 
-  const response = await model.sendRequest(messages, {});
+  try {
+    const response = await model.sendRequest(messages, {});
 
-  let fullResponse = "";
-  let tokenCount = 0;
+    let fullResponse = "";
+    let tokenCount = 0;
 
-  for await (const chunk of response.text) {
-    fullResponse += chunk;
-    tokenCount = estimateTokens(fullResponse);
-    updateStreamingProgress(tokenCount, fullResponse, "vscode-lm");
+    for await (const chunk of response.text) {
+      fullResponse += chunk;
+      tokenCount = estimateTokens(fullResponse);
+      updateStreamingProgress(tokenCount, fullResponse, "vscode-lm");
+    }
+
+    log("Cursor Native AI streaming complete");
+    return fullResponse || '{"summary": "No response", "findings": []}';
+  } catch (error) {
+    logError("Cursor Native AI error", error);
+    
+    if (error instanceof Error) {
+      if (error.message.includes("denied") || error.message.includes("permission")) {
+        throw new Error(
+          "Permission denied. Please allow PR Review Assistant to use Cursor AI when prompted."
+        );
+      }
+      if (error.message.includes("rate") || error.message.includes("limit")) {
+        throw new Error(
+          "Rate limit reached. Please wait a moment and try again."
+        );
+      }
+    }
+    throw error;
   }
-
-  log("VS Code LM API streaming complete");
-  return fullResponse || '{"summary": "No response", "findings": []}';
 }
