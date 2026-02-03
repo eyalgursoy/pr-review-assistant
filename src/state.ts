@@ -188,6 +188,28 @@ export function getApprovedComments(): ReviewComment[] {
 }
 
 /**
+ * Get pending comments (not yet approved or rejected)
+ */
+export function getPendingComments(): ReviewComment[] {
+  return getAllComments().filter((c) => c.status === "pending");
+}
+
+/**
+ * Get rejected comments
+ */
+export function getRejectedComments(): ReviewComment[] {
+  return getAllComments().filter((c) => c.status === "rejected");
+}
+
+/**
+ * Check if all comments have been reviewed (no pending)
+ */
+export function allCommentsReviewed(): boolean {
+  const all = getAllComments();
+  return all.length > 0 && all.every((c) => c.status !== "pending");
+}
+
+/**
  * Get comments for a specific file
  */
 export function getCommentsForFile(filePath: string): ReviewComment[] {

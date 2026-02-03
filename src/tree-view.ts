@@ -9,6 +9,8 @@ import {
   onStateChange,
   getAllComments,
   getApprovedComments,
+  getPendingComments,
+  allCommentsReviewed,
 } from "./state";
 import {
   getProgress,
@@ -117,8 +119,14 @@ export class PRReviewTreeProvider
         break;
 
       case "action":
-        item.iconPath = new vscode.ThemeIcon("play");
+        // Use cloud-upload icon for submit action, play for others
+        const isSubmit = element.actionCommand === "prReview.submitReview";
+        item.iconPath = new vscode.ThemeIcon(
+          isSubmit ? "cloud-upload" : "play",
+          isSubmit ? new vscode.ThemeColor("charts.green") : undefined
+        );
         item.collapsibleState = vscode.TreeItemCollapsibleState.None;
+        item.contextValue = "action";
         item.command = {
           command: element.actionCommand!,
           title: element.label,
@@ -299,6 +307,16 @@ export class PRReviewTreeProvider
         type: "status",
         label: `${rejected} rejected`,
         description: "will not submit",
+      });
+    }
+
+    // Show submit button when all comments have been reviewed
+    if (pending === 0 && approved > 0) {
+      items.push({
+        type: "action",
+        label: "✅ Submit PR Review",
+        description: `${approved} comment(s)`,
+        actionCommand: "prReview.submitReview",
       });
     }
 

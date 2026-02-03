@@ -27,6 +27,8 @@ import {
   updateCommentStatus,
   updateCommentText,
   getApprovedComments,
+  getPendingComments,
+  allCommentsReviewed,
   onStateChange,
 } from "./state";
 import {
@@ -140,11 +142,11 @@ function registerCommands(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "prReview.approveComment",
-      (arg: string | { comment?: ReviewComment }) => {
+      async (arg: string | { comment?: ReviewComment }) => {
         const commentId = typeof arg === "string" ? arg : arg?.comment?.id;
         if (commentId) {
           updateCommentStatus(commentId, "approved");
-          vscode.window.showInformationMessage("Comment approved ✓");
+          await checkAllCommentsReviewed();
         }
       }
     )
@@ -154,11 +156,11 @@ function registerCommands(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "prReview.rejectComment",
-      (arg: string | { comment?: ReviewComment }) => {
+      async (arg: string | { comment?: ReviewComment }) => {
         const commentId = typeof arg === "string" ? arg : arg?.comment?.id;
         if (commentId) {
           updateCommentStatus(commentId, "rejected");
-          vscode.window.showInformationMessage("Comment rejected ✗");
+          await checkAllCommentsReviewed();
         }
       }
     )
@@ -427,6 +429,28 @@ async function runReview() {
 }
 
 /**
+ * Check if all comments have been reviewed and show a helpful toast
+ */
+async function checkAllCommentsReviewed(): Promise<void> {
+  if (allCommentsReviewed()) {
+    const approved = getApprovedComments();
+    const pending = getPendingComments();
+    
+    if (approved.length > 0 && pending.length === 0) {
+      const action = await vscode.window.showInformationMessage(
+        `All comments reviewed! ${approved.length} approved and ready to submit.`,
+        "Submit PR Review",
+        "Dismiss"
+      );
+      
+      if (action === "Submit PR Review") {
+        vscode.commands.executeCommand("prReview.submitReview");
+      }
+    }
+  }
+}
+
+/**
  * Submit approved comments to GitHub
  */
 async function submitReview() {
@@ -438,13 +462,21 @@ async function submitReview() {
   }
 
   const approved = getApprovedComments();
+  const pending = getPendingComments();
+
   if (approved.length === 0) {
     vscode.window.showWarningMessage("No approved comments to submit.");
     return;
   }
 
+  // Warn if there are still pending comments
+  let confirmMessage = `Submit ${approved.length} comment(s) to PR #${state.pr.number}?`;
+  if (pending.length > 0) {
+    confirmMessage = `You have ${pending.length} pending comment(s) not yet reviewed.\n\nSubmit ${approved.length} approved comment(s) anyway?`;
+  }
+
   const confirm = await vscode.window.showInformationMessage(
-    `Submit ${approved.length} comment(s) to PR #${state.pr.number}?`,
+    confirmMessage,
     { modal: true },
     "Submit"
   );
