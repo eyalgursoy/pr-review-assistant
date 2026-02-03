@@ -899,8 +899,8 @@ async function findAgentBinary(): Promise<string | null> {
   // Try sourcing shell config and then which
   try {
     const { stdout } = await execAsync(
-      'source ~/.zshrc 2>/dev/null; which agent 2>/dev/null || source ~/.bashrc 2>/dev/null; which agent 2>/dev/null',
-      { shell: '/bin/zsh' }
+      "source ~/.zshrc 2>/dev/null; which agent 2>/dev/null || source ~/.bashrc 2>/dev/null; which agent 2>/dev/null",
+      { shell: "/bin/zsh" }
     );
     const foundPath = stdout.trim();
     if (foundPath && fs.existsSync(foundPath)) {
@@ -998,25 +998,27 @@ async function callCursorCLI(prompt: string): Promise<string> {
 
 ${prompt}
 
-IMPORTANT: Respond with ONLY valid JSON. No markdown, no explanations.`;
+IMPORTANT: Respond with ONLY valid JSON. No markdown, no code blocks, no explanations. Just the JSON object.`;
 
   fs.writeFileSync(promptFile, fullPrompt, "utf-8");
   log(`Wrote prompt to temp file: ${promptFile}`);
 
   try {
-    updateStreamingProgress(0, "Starting Cursor Agent...", "cursor-cli");
+    updateStreamingProgress(0, "Waiting for Cursor Agent (30-60s)...", "cursor-cli");
+    log("Sending prompt to Cursor Agent (this may take 30-60 seconds)...");
 
-    // Run the agent command with the full path
-    // Using --output-format text for programmatic output
+    // Run the agent command with -p (print mode) for non-interactive use
+    // The prompt is piped via stdin as that's how the CLI expects it
     const { stdout, stderr } = await execAsync(
-      `"${agentPath}" chat "$(cat '${promptFile}')" --output-format text 2>&1`,
+      `cat "${promptFile}" | "${agentPath}" -p --output-format text 2>&1`,
       {
         timeout: 300000, // 5 minute timeout
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+        cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
       }
     );
 
-    log("Cursor CLI stdout:", stdout);
+    log("Cursor CLI stdout length:", stdout?.length || 0);
     if (stderr) {
       log("Cursor CLI stderr:", stderr);
     }
@@ -1026,11 +1028,27 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no explanations.`;
 
     // Extract JSON from the response
     const response = stdout || stderr || "";
+    log("Cursor CLI response preview:", response.substring(0, 500));
 
-    // Try to find JSON in the response
+    // Try to find JSON in the response (may be wrapped in markdown code blocks)
+    // First try to extract from code blocks
+    const codeBlockMatch = response.match(
+      /```(?:json)?\s*(\{[\s\S]*?"findings"[\s\S]*?\})\s*```/
+    );
+    if (codeBlockMatch) {
+      log("Found JSON in code block");
+      updateStreamingProgress(
+        estimateTokens(codeBlockMatch[1]),
+        codeBlockMatch[1],
+        "cursor-cli"
+      );
+      return codeBlockMatch[1];
+    }
+
+    // Try to find raw JSON
     const jsonMatch = response.match(/\{[\s\S]*"findings"[\s\S]*\}/);
     if (jsonMatch) {
-      log("Found JSON in Cursor CLI response");
+      log("Found raw JSON in Cursor CLI response");
       updateStreamingProgress(
         estimateTokens(jsonMatch[0]),
         jsonMatch[0],
@@ -1040,6 +1058,7 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no explanations.`;
     }
 
     // If no JSON found, return the raw response for parsing
+    log("No JSON found in response, returning raw");
     updateStreamingProgress(estimateTokens(response), response, "cursor-cli");
     return (
       response ||
@@ -1062,14 +1081,18 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no explanations.`;
     if (errorMsg.includes("ETIMEDOUT") || errorMsg.includes("timeout")) {
       throw new Error("Cursor CLI timed out. The review may be too large.");
     }
-    
+
     if (errorMsg.includes("not found") || errorMsg.includes("ENOENT")) {
       throw new Error(
         "Cursor CLI not found. Install it with: curl https://cursor.com/install -fsSL | bash"
       );
     }
 
-    if (errorMsg.includes("login") || errorMsg.includes("auth") || errorMsg.includes("unauthorized")) {
+    if (
+      errorMsg.includes("login") ||
+      errorMsg.includes("auth") ||
+      errorMsg.includes("unauthorized")
+    ) {
       // Need to login
       const action = await vscode.window.showErrorMessage(
         "Cursor CLI requires login. Please authenticate first.",
@@ -1083,7 +1106,11 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no explanations.`;
       throw new Error("Please login to Cursor CLI and try again.");
     }
 
-    if (errorMsg.includes("trust") || errorMsg.includes("workspace") || errorMsg.includes("directory")) {
+    if (
+      errorMsg.includes("trust") ||
+      errorMsg.includes("workspace") ||
+      errorMsg.includes("directory")
+    ) {
       // Workspace trust issue
       throw new Error(
         "Cursor CLI needs workspace approval. Run 'agent chat' in terminal first to approve this directory."
