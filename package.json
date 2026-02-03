@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -236,15 +236,23 @@
             "groq",
             "none"
           ],
+          "enumItemLabels": [
+            "Cursor Native (Recommended)",
+            "Anthropic Claude",
+            "OpenAI GPT-4",
+            "Google Gemini",
+            "Groq",
+            "Manual"
+          ],
           "default": "vscode-lm",
           "description": "AI provider for code review. 'Cursor Native' is recommended - no API key needed!",
           "enumDescriptions": [
-            "Cursor Native AI (Recommended) - Uses your Cursor subscription, no API key needed!",
-            "Anthropic Claude (requires API key)",
-            "OpenAI GPT-4o (requires API key)",
-            "Google Gemini 2.5 Flash (requires API key)",
-            "Groq llama-3.3-70b (requires API key)",
-            "Manual - paste AI output yourself"
+            "Uses your Cursor subscription - no API key needed!",
+            "Requires prReview.anthropicApiKey",
+            "Requires prReview.openaiApiKey",
+            "Requires prReview.geminiApiKey",
+            "Requires prReview.groqApiKey",
+            "Paste AI output manually"
           ]
         },
         "prReview.anthropicApiKey": {
