@@ -39,6 +39,13 @@ import {
 } from "./github";
 import { runAIReview, getAIProvider } from "./ai-providers";
 import { buildReviewPrompt } from "./review-template";
+import {
+  startProgress,
+  updateStage,
+  resetProgress,
+  completeProgress,
+  errorProgress,
+} from "./streaming-progress";
 import type { ReviewComment } from "./types";
 
 let treeProvider: PRReviewTreeProvider;
@@ -272,21 +279,27 @@ async function startReview() {
 
   // Reset and load new PR
   resetState();
+  resetProgress();
+  startProgress();
   setLoading(true);
 
   try {
     // Fetch PR info
+    updateStage("fetching-pr", "Fetching PR information...");
     const prInfo = await fetchPRInfo(parsed.owner, parsed.repo, parsed.number);
     setPRInfo(prInfo);
 
     // Fetch changed files
+    updateStage("loading-diff", "Loading changed files...");
     await loadPRFiles(parsed.owner, parsed.repo, parsed.number);
 
     // Fetch diff
+    updateStage("loading-diff", "Loading diff...", `${prInfo.title}`);
     const diff = await fetchPRDiff(parsed.owner, parsed.repo, parsed.number);
     setDiff(diff);
 
     setLoading(false);
+    resetProgress(); // Clear progress when done loading
 
     // Auto-run AI if configured
     const config = vscode.workspace.getConfiguration("prReview");
@@ -356,72 +369,66 @@ async function runReview() {
   }
 
   setLoading(true);
+  startProgress();
 
   try {
-    await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: "Running AI code review...",
-        cancellable: false,
-      },
-      async (progress) => {
-        progress.report({ message: "Analyzing code changes..." });
-
-        const template = buildReviewPrompt(
-          state.pr!.headBranch,
-          state.pr!.baseBranch,
-          state.pr!.title,
-          state.diff
-        );
-
-        log("Review template length:", template.length);
-
-        const result = await runAIReview(state.diff, template);
-
-        logSection("ADDING COMMENTS TO STATE");
-        log(`Summary: ${result.summary}`);
-        log(`Received ${result.comments.length} comments from AI`);
-
-        // Store the summary
-        setSummary(result.summary);
-
-        if (result.comments.length === 0) {
-          vscode.window.showInformationMessage(
-            result.summary || "AI found no issues in this PR!"
-          );
-        } else {
-          addComments(result.comments);
-          log(`Added ${result.comments.length} comments to state`);
-
-          // Check if user wants to see log prompt
-          const config = vscode.workspace.getConfiguration("prReview");
-          const showLogPrompt = config.get<boolean>("showLogPrompt", false);
-
-          if (showLogPrompt) {
-            // Show log prompt for debugging
-            const viewLog = await vscode.window.showInformationMessage(
-              `AI found ${result.comments.length} issue(s) to review`,
-              "View Log"
-            );
-            if (viewLog === "View Log") {
-              showLog();
-            }
-          } else {
-            // Just show a simple notification without blocking
-            vscode.window.showInformationMessage(
-              `AI found ${result.comments.length} issue(s) to review`
-            );
-          }
-        }
-      }
+    // Build the prompt
+    const template = buildReviewPrompt(
+      state.pr!.headBranch,
+      state.pr!.baseBranch,
+      state.pr!.title,
+      state.diff
     );
+
+    log("Review template length:", template.length);
+
+    // Run AI review (progress is tracked inside runAIReview)
+    const result = await runAIReview(state.diff, template);
+
+    logSection("ADDING COMMENTS TO STATE");
+    log(`Summary: ${result.summary}`);
+    log(`Received ${result.comments.length} comments from AI`);
+
+    // Store the summary
+    setSummary(result.summary);
+
+    if (result.comments.length === 0) {
+      vscode.window.showInformationMessage(
+        result.summary || "AI found no issues in this PR!"
+      );
+    } else {
+      addComments(result.comments);
+      log(`Added ${result.comments.length} comments to state`);
+
+      // Check if user wants to see log prompt
+      const config = vscode.workspace.getConfiguration("prReview");
+      const showLogPrompt = config.get<boolean>("showLogPrompt", false);
+
+      if (showLogPrompt) {
+        // Show log prompt for debugging
+        const viewLog = await vscode.window.showInformationMessage(
+          `AI found ${result.comments.length} issue(s) to review`,
+          "View Log"
+        );
+        if (viewLog === "View Log") {
+          showLog();
+        }
+      } else {
+        // Just show a simple notification without blocking
+        vscode.window.showInformationMessage(
+          `AI found ${result.comments.length} issue(s) to review`
+        );
+      }
+    }
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     // Don't expose API keys
     const safeMsg = msg.replace(/sk-[a-zA-Z0-9]+/g, "[API_KEY]");
+    errorProgress(safeMsg);
     vscode.window.showErrorMessage(`AI review failed: ${safeMsg}`);
   } finally {
     setLoading(false);
+    // Don't reset progress here - let the tree view show the final state
   }
 }
 

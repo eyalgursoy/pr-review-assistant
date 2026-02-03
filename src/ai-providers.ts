@@ -5,6 +5,14 @@
 
 import * as vscode from "vscode";
 import { log, logError, logSection } from "./logger";
+import {
+  updateStage,
+  updateStreamingProgress,
+  setInputTokens,
+  completeProgress,
+  errorProgress,
+  estimateTokens,
+} from "./streaming-progress";
 import type {
   AIProvider,
   AIReviewOutput,
@@ -121,7 +129,10 @@ export async function runAIReview(
   log(`Diff length: ${diff.length} characters`);
   log(`Diff preview (first 500 chars):`, diff.substring(0, 500));
 
+  updateStage("preparing-prompt", "Preparing AI prompt...");
+
   if (provider === "none") {
+    errorProgress("No AI provider configured");
     throw new Error(
       "No AI provider configured. Set prReview.aiProvider in settings."
     );
@@ -129,6 +140,7 @@ export async function runAIReview(
 
   const apiKey = getAPIKey(provider);
   if (!apiKey && provider !== "vscode-lm") {
+    errorProgress(`API key not configured for ${provider}`);
     throw new Error(
       `API key not configured for ${provider}. Set prReview.${provider}ApiKey in settings.`
     );
@@ -156,32 +168,42 @@ IMPORTANT:
 
   log(`User prompt length: ${userPrompt.length} characters`);
 
+  // Estimate input tokens for cost calculation
+  const inputTokens = estimateTokens(REVIEW_SYSTEM_PROMPT + userPrompt);
+  setInputTokens(inputTokens);
+  log(`Estimated input tokens: ${inputTokens}`);
+
+  updateStage("ai-analyzing", "Sending to AI...", `Using ${provider}`);
+
   let response: string;
 
   try {
     switch (provider) {
       case "anthropic":
-        response = await callAnthropic(apiKey!, userPrompt);
+        response = await callAnthropicStreaming(apiKey!, userPrompt);
         break;
       case "openai":
-        response = await callOpenAI(apiKey!, userPrompt);
+        response = await callOpenAIStreaming(apiKey!, userPrompt);
         break;
       case "gemini":
-        response = await callGemini(apiKey!, userPrompt);
+        response = await callGeminiStreaming(apiKey!, userPrompt);
         break;
       case "groq":
-        response = await callGroq(apiKey!, userPrompt);
+        response = await callGroqStreaming(apiKey!, userPrompt);
         break;
       case "vscode-lm":
-        response = await callVSCodeLM(userPrompt);
+        response = await callVSCodeLMStreaming(userPrompt);
         break;
       default:
         throw new Error(`Unknown provider: ${provider}`);
     }
   } catch (error) {
     logError("AI API call failed", error);
+    errorProgress(error instanceof Error ? error.message : "AI call failed");
     throw error;
   }
+
+  updateStage("parsing-response", "Processing AI response...");
 
   logSection("AI RESPONSE");
   log(`Response length: ${response.length} characters`);
@@ -200,6 +222,8 @@ IMPORTANT:
       issue: c.issue.substring(0, 100) + (c.issue.length > 100 ? "..." : ""),
     });
   });
+
+  completeProgress(result.comments.length, provider);
 
   return result;
 }
@@ -495,54 +519,86 @@ function normalizeSeverity(s: string | undefined): Severity {
 }
 
 /**
- * Anthropic Claude
+ * Anthropic Claude with Streaming
  */
-async function callAnthropic(apiKey: string, prompt: string): Promise<string> {
-  log("Calling Anthropic Claude API...");
+async function callAnthropicStreaming(
+  apiKey: string,
+  prompt: string
+): Promise<string> {
+  log("Calling Anthropic Claude API with streaming...");
   const module = await import("@anthropic-ai/sdk");
   const Anthropic = module.default || module;
   const client = new (Anthropic as any)({ apiKey });
 
-  const response = await client.messages.create({
+  let fullResponse = "";
+  let tokenCount = 0;
+
+  const stream = client.messages.stream({
     model: "claude-sonnet-4-20250514",
     max_tokens: 16384,
     system: REVIEW_SYSTEM_PROMPT,
     messages: [{ role: "user", content: prompt }],
   });
 
-  log("Anthropic API response received");
-  const textBlock = response.content.find((b: any) => b.type === "text");
-  return textBlock?.text || '{"findings": []}';
+  for await (const event of stream) {
+    if (event.type === "content_block_delta" && event.delta?.text) {
+      fullResponse += event.delta.text;
+      tokenCount = estimateTokens(fullResponse);
+      updateStreamingProgress(tokenCount, fullResponse, "anthropic");
+    }
+  }
+
+  log("Anthropic API streaming complete");
+  return fullResponse || '{"summary": "No response", "findings": []}';
 }
 
 /**
- * OpenAI GPT-4o
+ * OpenAI GPT-4o with Streaming
  */
-async function callOpenAI(apiKey: string, prompt: string): Promise<string> {
-  log("Calling OpenAI API...");
+async function callOpenAIStreaming(
+  apiKey: string,
+  prompt: string
+): Promise<string> {
+  log("Calling OpenAI API with streaming...");
   const module = await import("openai");
   const OpenAI = module.default || module;
   const client = new (OpenAI as any)({ apiKey });
 
-  const response = await client.chat.completions.create({
+  let fullResponse = "";
+  let tokenCount = 0;
+
+  const stream = await client.chat.completions.create({
     model: "gpt-4o",
     max_tokens: 16384,
     response_format: { type: "json_object" },
+    stream: true,
     messages: [
       { role: "system", content: REVIEW_SYSTEM_PROMPT },
       { role: "user", content: prompt },
     ],
   });
 
-  log("OpenAI API response received");
-  return response.choices[0]?.message?.content || '{"findings": []}';
+  for await (const chunk of stream) {
+    const content = chunk.choices[0]?.delta?.content;
+    if (content) {
+      fullResponse += content;
+      tokenCount = estimateTokens(fullResponse);
+      updateStreamingProgress(tokenCount, fullResponse, "openai");
+    }
+  }
+
+  log("OpenAI API streaming complete");
+  return fullResponse || '{"summary": "No response", "findings": []}';
 }
 
 /**
- * Google Gemini 2.5 Flash
+ * Google Gemini 2.5 Flash with Streaming
  */
-async function callGemini(apiKey: string, prompt: string): Promise<string> {
-  log("Calling Google Gemini API...");
+async function callGeminiStreaming(
+  apiKey: string,
+  prompt: string
+): Promise<string> {
+  log("Calling Google Gemini API with streaming...");
   const { GoogleGenerativeAI } = await import("@google/generative-ai");
   const genAI = new GoogleGenerativeAI(apiKey);
 
@@ -554,43 +610,71 @@ async function callGemini(apiKey: string, prompt: string): Promise<string> {
     },
   });
 
-  const result = await model.generateContent([
+  let fullResponse = "";
+  let tokenCount = 0;
+
+  const result = await model.generateContentStream([
     { text: REVIEW_SYSTEM_PROMPT },
     { text: prompt },
   ]);
 
-  log("Gemini API response received");
-  return result.response.text() || '{"findings": []}';
+  for await (const chunk of result.stream) {
+    const text = chunk.text();
+    if (text) {
+      fullResponse += text;
+      tokenCount = estimateTokens(fullResponse);
+      updateStreamingProgress(tokenCount, fullResponse, "gemini");
+    }
+  }
+
+  log("Gemini API streaming complete");
+  return fullResponse || '{"summary": "No response", "findings": []}';
 }
 
 /**
- * Groq (Llama 3.3 70B)
+ * Groq (Llama 3.3 70B) with Streaming
  */
-async function callGroq(apiKey: string, prompt: string): Promise<string> {
-  log("Calling Groq API...");
+async function callGroqStreaming(
+  apiKey: string,
+  prompt: string
+): Promise<string> {
+  log("Calling Groq API with streaming...");
   const module = await import("groq-sdk");
   const Groq = module.default || module;
   const client = new (Groq as any)({ apiKey });
 
-  const response = await client.chat.completions.create({
+  let fullResponse = "";
+  let tokenCount = 0;
+
+  const stream = await client.chat.completions.create({
     model: "llama-3.3-70b-versatile",
     max_tokens: 16384,
     response_format: { type: "json_object" },
+    stream: true,
     messages: [
       { role: "system", content: REVIEW_SYSTEM_PROMPT },
       { role: "user", content: prompt },
     ],
   });
 
-  log("Groq API response received");
-  return response.choices[0]?.message?.content || '{"findings": []}';
+  for await (const chunk of stream) {
+    const content = chunk.choices[0]?.delta?.content;
+    if (content) {
+      fullResponse += content;
+      tokenCount = estimateTokens(fullResponse);
+      updateStreamingProgress(tokenCount, fullResponse, "groq");
+    }
+  }
+
+  log("Groq API streaming complete");
+  return fullResponse || '{"summary": "No response", "findings": []}';
 }
 
 /**
- * VS Code Language Model API (Cursor/Copilot)
+ * VS Code Language Model API (Cursor/Copilot) with Streaming
  */
-async function callVSCodeLM(prompt: string): Promise<string> {
-  log("Calling VS Code Language Model API...");
+async function callVSCodeLMStreaming(prompt: string): Promise<string> {
+  log("Calling VS Code Language Model API with streaming...");
 
   // Check if Language Model API is available
   if (!vscode.lm) {
@@ -626,11 +710,15 @@ async function callVSCodeLM(prompt: string): Promise<string> {
 
   const response = await model.sendRequest(messages, {});
 
-  let result = "";
+  let fullResponse = "";
+  let tokenCount = 0;
+
   for await (const chunk of response.text) {
-    result += chunk;
+    fullResponse += chunk;
+    tokenCount = estimateTokens(fullResponse);
+    updateStreamingProgress(tokenCount, fullResponse, "vscode-lm");
   }
 
-  log("VS Code LM API response received");
-  return result || '{"findings": []}';
+  log("VS Code LM API streaming complete");
+  return fullResponse || '{"summary": "No response", "findings": []}';
 }

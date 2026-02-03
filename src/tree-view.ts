@@ -10,6 +10,14 @@ import {
   getAllComments,
   getApprovedComments,
 } from "./state";
+import {
+  getProgress,
+  onProgressChange,
+  formatElapsedTime,
+  formatCost,
+  formatTokens,
+  type StreamingProgress,
+} from "./streaming-progress";
 import type {
   ReviewState,
   ChangedFile,
@@ -23,7 +31,10 @@ type TreeItemType =
   | "file"
   | "comment"
   | "action"
-  | "status";
+  | "status"
+  | "progress"
+  | "progress-detail"
+  | "progress-stats";
 
 interface TreeItemData {
   type: TreeItemType;
@@ -45,6 +56,11 @@ export class PRReviewTreeProvider
   constructor() {
     // Listen for state changes
     onStateChange(() => {
+      this.refresh();
+    });
+
+    // Listen for progress changes
+    onProgressChange(() => {
       this.refresh();
     });
   }
@@ -111,6 +127,28 @@ export class PRReviewTreeProvider
         item.iconPath = new vscode.ThemeIcon("info");
         item.collapsibleState = vscode.TreeItemCollapsibleState.None;
         break;
+
+      case "progress":
+        item.iconPath = new vscode.ThemeIcon(
+          "sync~spin",
+          new vscode.ThemeColor("charts.blue")
+        );
+        item.description = element.description;
+        item.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+        item.contextValue = "progress";
+        break;
+
+      case "progress-detail":
+        item.iconPath = new vscode.ThemeIcon("chevron-right");
+        item.description = element.description;
+        item.collapsibleState = vscode.TreeItemCollapsibleState.None;
+        break;
+
+      case "progress-stats":
+        item.iconPath = new vscode.ThemeIcon("dashboard");
+        item.description = element.description;
+        item.collapsibleState = vscode.TreeItemCollapsibleState.None;
+        break;
     }
 
     return item;
@@ -122,6 +160,15 @@ export class PRReviewTreeProvider
     // Root level
     if (!element) {
       return this.getRootItems(state);
+    }
+
+    // Progress items don't have children (they're flat)
+    if (
+      element.type === "progress" ||
+      element.type === "progress-detail" ||
+      element.type === "progress-stats"
+    ) {
+      return [];
     }
 
     // Section children
@@ -148,21 +195,23 @@ export class PRReviewTreeProvider
 
   private getRootItems(state: ReviewState): TreeItemData[] {
     const items: TreeItemData[] = [];
+    const progress = getProgress();
 
-    // Loading state
-    if (state.isLoading) {
-      items.push({
-        type: "status",
-        label: "Loading...",
-      });
+    // Show progress during AI review
+    if (
+      state.isLoading &&
+      progress.stage !== "idle" &&
+      progress.stage !== "complete"
+    ) {
+      items.push(...this.getProgressItems(progress));
       return items;
     }
 
     // Error state
-    if (state.error) {
+    if (state.error || progress.stage === "error") {
       items.push({
         type: "status",
-        label: `Error: ${state.error}`,
+        label: `Error: ${state.error || progress.details || "Unknown error"}`,
       });
       return items;
     }
@@ -252,6 +301,98 @@ export class PRReviewTreeProvider
     }
 
     return items;
+  }
+
+  private getProgressItems(progress: StreamingProgress): TreeItemData[] {
+    const items: TreeItemData[] = [];
+
+    // Main progress item with stage icon
+    const stageIcons: Record<string, string> = {
+      "fetching-pr": "cloud-download",
+      "loading-diff": "file-code",
+      "preparing-prompt": "edit",
+      "ai-analyzing": "hubot",
+      "ai-streaming": "hubot",
+      "parsing-response": "json",
+      complete: "check",
+      error: "error",
+    };
+
+    const stageLabels: Record<string, string> = {
+      "fetching-pr": "Fetching PR Info",
+      "loading-diff": "Loading Diff",
+      "preparing-prompt": "Preparing Prompt",
+      "ai-analyzing": "AI Analyzing",
+      "ai-streaming": "AI Reviewing",
+      "parsing-response": "Processing Results",
+      complete: "Complete",
+      error: "Error",
+    };
+
+    items.push({
+      type: "progress",
+      label: stageLabels[progress.stage] || progress.stage,
+      description: progress.message,
+    });
+
+    // Show current file being analyzed
+    if (progress.currentFile) {
+      items.push({
+        type: "progress-detail",
+        label: `📄 ${this.getFileName(progress.currentFile)}`,
+        description: "analyzing...",
+      });
+    }
+
+    // Show files already analyzed
+    if (progress.filesAnalyzed.length > 0 && !progress.currentFile) {
+      const lastFile =
+        progress.filesAnalyzed[progress.filesAnalyzed.length - 1];
+      items.push({
+        type: "progress-detail",
+        label: `📄 ${this.getFileName(lastFile)}`,
+        description: `${progress.filesAnalyzed.length} file(s) reviewed`,
+      });
+    }
+
+    // Show stats during streaming
+    if (
+      progress.stage === "ai-streaming" ||
+      progress.stage === "ai-analyzing"
+    ) {
+      const statsLine = this.buildStatsLine(progress);
+      if (statsLine) {
+        items.push({
+          type: "progress-stats",
+          label: statsLine,
+        });
+      }
+    }
+
+    return items;
+  }
+
+  private buildStatsLine(progress: StreamingProgress): string {
+    const parts: string[] = [];
+
+    if (progress.tokensReceived > 0) {
+      parts.push(`${formatTokens(progress.tokensReceived)} tokens`);
+    }
+
+    if (progress.estimatedCost > 0) {
+      parts.push(formatCost(progress.estimatedCost));
+    }
+
+    if (progress.elapsedMs > 0) {
+      parts.push(formatElapsedTime(progress.elapsedMs));
+    }
+
+    return parts.join(" | ");
+  }
+
+  private getFileName(filePath: string): string {
+    const parts = filePath.split("/");
+    return parts[parts.length - 1];
   }
 
   private getFileIcon(file: ChangedFile): vscode.ThemeIcon {

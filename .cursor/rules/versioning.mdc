@@ -1,0 +1,52 @@
+---
+description: Version management convention for PR Review Assistant extension
+globs: package.json
+alwaysApply: false
+---
+
+# Version Management Convention
+
+Follow Semantic Versioning (SemVer) for this VS Code extension.
+
+## Version Format: MAJOR.MINOR.PATCH
+
+| Bump      | When                               | Examples                                                   |
+| --------- | ---------------------------------- | ---------------------------------------------------------- |
+| **MAJOR** | Breaking changes, major rewrites   | Removing features, changing extension APIs                 |
+| **MINOR** | New features (backward compatible) | Adding streaming progress, new AI providers, new UI panels |
+| **PATCH** | Bug fixes, small improvements      | Fixing JSON parsing, UI tweaks, prompt improvements        |
+
+## When to Bump Version
+
+**Bump the version when creating a commit that includes:**
+
+1. **New feature** → Bump MINOR (e.g., 0.3.0 → 0.4.0)
+2. **Bug fix** → Bump PATCH (e.g., 0.3.0 → 0.3.1)
+3. **Breaking change** → Bump MAJOR (e.g., 0.3.0 → 1.0.0)
+
+**Do NOT bump version for:**
+
+- Work-in-progress changes before commit
+- Documentation-only changes
+- Code refactoring with no user-visible changes
+
+## Process
+
+1. Before committing, check if changes warrant a version bump
+2. Update `version` in `package.json`
+3. Include version bump in the same commit as the feature/fix
+4. Mention the new version in the commit message
+
+## Example
+
+```json
+// Before: Adding streaming progress feature
+"version": "0.3.0"
+
+// After: Bump minor version for new feature
+"version": "0.4.0"
+```
+
+## Current Version Reference
+
+Check `package.json` for current version before making changes.
