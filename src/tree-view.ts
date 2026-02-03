@@ -310,12 +310,12 @@ export class PRReviewTreeProvider
       });
     }
 
-    // Show submit button when all comments have been reviewed
+    // Show prominent submit action when all comments are reviewed
     if (pending === 0 && approved > 0) {
       items.push({
         type: "action",
-        label: "✅ Submit PR Review",
-        description: `${approved} comment(s)`,
+        label: "━━━ Submit PR Review ━━━",
+        description: `${approved} comment(s) ready`,
         actionCommand: "prReview.submitReview",
       });
     }
@@ -462,9 +462,12 @@ export class PRReviewTreeProvider
 
   private getCommentTooltip(comment: ReviewComment): vscode.MarkdownString {
     const md = new vscode.MarkdownString();
-    const sideLabel = comment.side === "LEFT" ? "deleted line" : "added/context line";
+    const sideLabel =
+      comment.side === "LEFT" ? "deleted line" : "added/context line";
     md.appendMarkdown(
-      `**${comment.severity.toUpperCase()}** (${sideLabel}): ${comment.issue}\n\n`
+      `**${comment.severity.toUpperCase()}** (${sideLabel}): ${
+        comment.issue
+      }\n\n`
     );
     if (comment.suggestion) {
       md.appendMarkdown(`**Suggestion:** ${comment.suggestion}\n\n`);

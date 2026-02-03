@@ -66,6 +66,31 @@ export function activate(context: vscode.ExtensionContext) {
   });
   context.subscriptions.push(treeView);
 
+  // Create status bar item for submit button (visible when ready)
+  const submitStatusBar = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    100
+  );
+  submitStatusBar.command = "prReview.submitReview";
+  submitStatusBar.backgroundColor = new vscode.ThemeColor(
+    "statusBarItem.warningBackground"
+  );
+  context.subscriptions.push(submitStatusBar);
+
+  // Update status bar when state changes
+  onStateChange(() => {
+    const approved = getApprovedComments().length;
+    const pending = getPendingComments().length;
+
+    if (approved > 0 && pending === 0) {
+      submitStatusBar.text = `$(cloud-upload) Submit PR Review (${approved})`;
+      submitStatusBar.tooltip = `Submit ${approved} approved comment(s) to GitHub`;
+      submitStatusBar.show();
+    } else {
+      submitStatusBar.hide();
+    }
+  });
+
   // Initialize Comments API (native comment threads)
   initCommentController(context);
 
@@ -114,7 +139,6 @@ function registerCommands(context: vscode.ExtensionContext) {
       await startReview();
     })
   );
-
 
   // Run AI Review
   context.subscriptions.push(
@@ -435,14 +459,14 @@ async function checkAllCommentsReviewed(): Promise<void> {
   if (allCommentsReviewed()) {
     const approved = getApprovedComments();
     const pending = getPendingComments();
-    
+
     if (approved.length > 0 && pending.length === 0) {
       const action = await vscode.window.showInformationMessage(
         `All comments reviewed! ${approved.length} approved and ready to submit.`,
         "Submit PR Review",
         "Dismiss"
       );
-      
+
       if (action === "Submit PR Review") {
         vscode.commands.executeCommand("prReview.submitReview");
       }

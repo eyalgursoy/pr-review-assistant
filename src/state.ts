@@ -223,8 +223,15 @@ export function getCommentsForFile(filePath: string): ReviewComment[] {
 function updateContextKeys(): void {
   const hasReview = state.pr !== null;
   const hasFiles = state.files.length > 0;
-  const hasComments = getAllComments().length > 0;
-  const hasApprovedComments = getApprovedComments().length > 0;
+  const allComments = getAllComments();
+  const hasComments = allComments.length > 0;
+  const approvedComments = getApprovedComments();
+  const hasApprovedComments = approvedComments.length > 0;
+  const pendingComments = getPendingComments();
+  const hasPendingComments = pendingComments.length > 0;
+
+  // Ready to submit: has approved comments AND no pending comments
+  const readyToSubmit = hasApprovedComments && !hasPendingComments;
 
   vscode.commands.executeCommand("setContext", "prReview.hasReview", hasReview);
   vscode.commands.executeCommand("setContext", "prReview.hasFiles", hasFiles);
@@ -237,5 +244,10 @@ function updateContextKeys(): void {
     "setContext",
     "prReview.hasApprovedComments",
     hasApprovedComments
+  );
+  vscode.commands.executeCommand(
+    "setContext",
+    "prReview.readyToSubmit",
+    readyToSubmit
   );
 }
