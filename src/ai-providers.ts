@@ -13,6 +13,7 @@ import {
   errorProgress,
   estimateTokens,
 } from "./streaming-progress";
+import { annotateDiff } from "./diff-annotator";
 import type {
   AIProvider,
   AIReviewOutput,
@@ -57,39 +58,50 @@ The JSON must follow this EXACT schema:
   ]
 }
 
+## IMPORTANT: Annotated Line Numbers
+The diff you receive has been annotated with EXACT line numbers. Each line has a prefix showing:
+- \`[OLD:X|NEW:Y]\` - Context line: X is old file line, Y is new file line
+- \`[NEW:X|ADD]\` - Added line: X is the new file line number
+- \`[OLD:X|DEL]\` - Deleted line: X is the old file line number
+
+**USE THESE ANNOTATED LINE NUMBERS DIRECTLY** - they are the exact line numbers you should report.
+
 ## Field Requirements
 - "summary": String - brief PR summary, MAX 200 characters, no newlines
 - "file": String - exact file path as shown in the diff (without a/ or b/ prefix)
-- "line": Number - the line number where the issue is located
+- "line": Number - **USE THE ANNOTATED LINE NUMBER** from the diff:
+  - For lines marked \`[NEW:X|ADD]\` or \`[OLD:X|NEW:Y]\`, use X or Y based on side
+  - For lines marked \`[OLD:X|DEL]\`, use X
 - "side": String - MUST be either "RIGHT" or "LEFT":
-  - Use "RIGHT" for comments about ADDED lines (lines starting with + in the diff) or unchanged context lines
-  - Use "LEFT" for comments about DELETED lines (lines starting with - in the diff)
-  - When "side" is "RIGHT", use the NEW file line number (shown after the comma in @@ -old,count +NEW,count @@)
-  - When "side" is "LEFT", use the OLD file line number (shown before the comma in @@ -OLD,count +new,count @@)
+  - Use "RIGHT" for ADDED lines (\`[NEW:X|ADD]\`) or context lines - use the NEW line number
+  - Use "LEFT" for DELETED lines (\`[OLD:X|DEL]\`) - use the OLD line number
 - "severity": String - exactly one of: "critical", "high", "medium", "low"
 - "issue": String - concise description of the problem (no newlines)
 - "suggestion": String - how to fix it (no newlines)
 
-## Understanding Diff Line Numbers
-In a diff like:
+## Example Annotated Diff
 \`\`\`
 @@ -10,5 +12,7 @@
- context line (unchanged)
--deleted line (was line 11 in old file)
-+added line (is line 13 in new file)
+[OLD:10|NEW:12]  context line (unchanged)
+[OLD:11|DEL] -deleted line
+[NEW:13|ADD] +added line
+[OLD:12|NEW:14]  another context
 \`\`\`
-- For the deleted line: use "side": "LEFT", "line": 11
-- For the added line: use "side": "RIGHT", "line": 13
-- For context lines: use "side": "RIGHT" with the new file line number
+
+For this diff:
+- To comment on the deleted line: \`"line": 11, "side": "LEFT"\`
+- To comment on the added line: \`"line": 13, "side": "RIGHT"\`
+- To comment on context lines: use the NEW number, e.g., \`"line": 12, "side": "RIGHT"\` or \`"line": 14, "side": "RIGHT"\`
 
 ## Important Rules
 1. ALWAYS include a "summary" field - this is required
 2. ALWAYS include "side" field for each finding - this is required for accurate GitHub comments
-3. Review the ENTIRE diff - check ALL files, not just the first one
-4. Report ALL issues you find, not just one
-5. Use the exact file path from the diff header (e.g., "src/components/Button.tsx")
-6. Keep string values on a single line - no newlines inside strings
-7. Return valid JSON only - no markdown code blocks, no explanatory text
+3. **ALWAYS use the annotated line numbers** - do not calculate line numbers yourself
+4. Review the ENTIRE diff - check ALL files, not just the first one
+5. Report ALL issues you find, not just one
+6. Use the exact file path from the diff header (e.g., "src/components/Button.tsx")
+7. Keep string values on a single line - no newlines inside strings
+8. Return valid JSON only - no markdown code blocks, no explanatory text
 
 ## If No Issues Found
 If the code looks good with no issues, still include a summary:
@@ -168,22 +180,33 @@ export async function runAIReview(
   const truncatedDiff = truncateDiff(diff);
   log(`Truncated diff length: ${truncatedDiff.length} characters`);
 
+  // Annotate the diff with absolute line numbers for accuracy
+  const annotatedResult = annotateDiff(truncatedDiff);
+  log(`Annotated diff: ${annotatedResult.fileCount} files, ${annotatedResult.hunkCount} hunks`);
+  log(`Annotated diff preview (first 800 chars):`, annotatedResult.annotated.substring(0, 800));
+
   const userPrompt = `${template}
 
 ---
 
-## Code Diff to Review
+## Code Diff to Review (with annotated line numbers)
 
 Review ALL files and ALL changes in this diff. Report ALL issues found.
 Include a brief summary (max 200 chars) of the PR and your overall assessment.
 
+**IMPORTANT: Each line is annotated with its exact line number. Use these numbers directly in your response.**
+- \`[OLD:X|NEW:Y]\` = context line (use Y for "line" with "side": "RIGHT")
+- \`[NEW:X|ADD]\` = added line (use X for "line" with "side": "RIGHT")
+- \`[OLD:X|DEL]\` = deleted line (use X for "line" with "side": "LEFT")
+
 \`\`\`diff
-${truncatedDiff}
+${annotatedResult.annotated}
 \`\`\`
 
 IMPORTANT: 
 1. Include a "summary" field with a brief description of the PR (max 200 chars)
-2. Review the ENTIRE diff and report ALL issues across ALL files`;
+2. Review the ENTIRE diff and report ALL issues across ALL files
+3. Use the EXACT line numbers from the annotations - do not calculate them yourself`;
 
   log(`User prompt length: ${userPrompt.length} characters`);
 

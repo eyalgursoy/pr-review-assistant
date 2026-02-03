@@ -12,6 +12,7 @@ import {
   updateCommentText,
   getAllComments,
 } from "./state";
+import { log } from "./logger";
 import type { ReviewComment, CommentStatus } from "./types";
 
 let commentController: vscode.CommentController | undefined;
@@ -226,10 +227,15 @@ function registerCommentCommands(context: vscode.ExtensionContext): void {
  * Refresh all comment threads based on current state
  */
 function refreshCommentThreads(): void {
-  if (!commentController) return;
+  if (!commentController) {
+    log("Comment controller not initialized");
+    return;
+  }
 
   const state = getState();
   const allComments = getAllComments();
+
+  log(`Refreshing comment threads: ${allComments.length} comments`);
 
   // Track which threads we've updated
   const updatedThreadIds = new Set<string>();
@@ -246,6 +252,12 @@ function refreshCommentThreads(): void {
       const uri = getFileUri(comment.file);
       const line = Math.max(0, comment.line - 1);
       const range = new vscode.Range(line, 0, line, 0);
+
+      log(
+        `Creating comment thread: file=${
+          comment.file
+        }, uri=${uri.toString()}, line=${comment.line}, side=${comment.side}`
+      );
 
       thread = commentController.createCommentThread(uri, range, []);
       thread.canReply = false;
