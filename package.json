@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -134,6 +134,16 @@
         "icon": "$(trash)"
       },
       {
+        "command": "prReview.fixInChat",
+        "title": "Fix in Chat",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "prReview.generateSuggestion",
+        "title": "Suggested Fix",
+        "icon": "$(lightbulb)"
+      },
+      {
         "command": "prReview.comment.approveAll",
         "title": "Approve All Pending",
         "icon": "$(check-all)"
@@ -182,6 +192,16 @@
           "command": "prReview.editComment",
           "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
           "group": "inline@3"
+        },
+        {
+          "command": "prReview.fixInChat",
+          "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
+          "group": "inline@4"
+        },
+        {
+          "command": "prReview.generateSuggestion",
+          "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
+          "group": "inline@5"
         }
       ],
       "comments/commentThread/title": [
@@ -198,6 +218,16 @@
         {
           "command": "prReview.comment.delete",
           "group": "inline@3",
+          "when": "commentController == prReviewAssistant"
+        },
+        {
+          "command": "prReview.fixInChat",
+          "group": "inline@4",
+          "when": "commentController == prReviewAssistant"
+        },
+        {
+          "command": "prReview.generateSuggestion",
+          "group": "inline@5",
           "when": "commentController == prReviewAssistant"
         }
       ],

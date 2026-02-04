@@ -45,7 +45,7 @@ import {
   fetchLocalDiff,
   parseDiffToChangedFiles,
 } from "./github";
-import { runAIReview, getAIProvider } from "./ai-providers";
+import { runAIReview, getAIProvider, generateCodeSuggestion } from "./ai-providers";
 import { buildReviewPrompt } from "./review-template";
 import {
   startProgress,
@@ -269,6 +269,28 @@ function registerCommands(context: vscode.ExtensionContext) {
             modal: false,
           });
         }
+      }
+    )
+  );
+
+  // Fix in Chat - open file and copy context for Cursor chat
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "prReview.fixInChat",
+      async (arg: ReviewComment | { comment?: ReviewComment } | unknown) => {
+        const comment = resolveCommentArg(arg);
+        if (comment) await fixInChat(comment);
+      }
+    )
+  );
+
+  // Generate Suggested Fix - AI generates code suggestion
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "prReview.generateSuggestion",
+      async (arg: ReviewComment | { comment?: ReviewComment } | unknown) => {
+        const comment = resolveCommentArg(arg);
+        if (comment) await generateSuggestionForComment(comment);
       }
     )
   );
@@ -711,18 +733,150 @@ async function editComment(commentId: string) {
 
   if (!comment) return;
 
+  // Revert to pending so user can re-review after edit
+  updateCommentStatus(commentId, "pending");
+
   const currentText =
     comment.editedText || `**${comment.issue}**\n\n${comment.suggestion || ""}`;
 
   const newText = await vscode.window.showInputBox({
-    prompt: "Edit comment",
+    prompt: "Edit comment (status reset to pending for re-review)",
     value: currentText,
     valueSelection: [0, currentText.length],
   });
 
   if (newText !== undefined) {
     updateCommentText(commentId, newText);
-    updateCommentStatus(commentId, "approved");
+  }
+}
+
+/**
+ * Resolve comment from various command argument types
+ */
+function resolveCommentArg(arg: unknown): ReviewComment | undefined {
+  if (!arg) return undefined;
+  if (typeof arg === "object" && "comment" in arg && arg.comment) {
+    return arg.comment as ReviewComment;
+  }
+  if (typeof arg === "object" && "file" in arg && "line" in arg) {
+    return arg as ReviewComment;
+  }
+  // From comment thread: arg may be CommentThread or PRReviewComment
+  if (typeof arg === "object" && "comments" in arg) {
+    const thread = arg as { comments: Array<{ reviewComment?: ReviewComment }> };
+    const first = thread.comments[0];
+    return first?.reviewComment;
+  }
+  if (typeof arg === "object" && "reviewComment" in arg) {
+    return (arg as { reviewComment: ReviewComment }).reviewComment;
+  }
+  return undefined;
+}
+
+/**
+ * Fix in Chat - open file, copy context, try to open Cursor chat
+ */
+async function fixInChat(comment: ReviewComment) {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    vscode.window.showWarningMessage("No workspace folder open");
+    return;
+  }
+
+  const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, comment.file);
+  let codeSnippet = "";
+
+  try {
+    const doc = await vscode.workspace.openTextDocument(fileUri);
+    await vscode.window.showTextDocument(doc);
+
+    const lineIdx = Math.max(0, comment.line - 1);
+    const start = Math.max(0, lineIdx - 3);
+    const end = Math.min(doc.lineCount, lineIdx + 4);
+    codeSnippet = doc.getText(new vscode.Range(start, 0, end, 0));
+  } catch {
+    codeSnippet = `File: ${comment.file}, Line: ${comment.line}`;
+  }
+
+  const context = `Fix this code review issue:
+
+**File:** ${comment.file}
+**Line:** ${comment.line}
+
+**Issue:** ${comment.issue}
+${comment.suggestion ? `**Suggestion:** ${comment.suggestion}` : ""}
+
+**Code:**
+\`\`\`
+${codeSnippet}
+\`\`\`
+
+Please fix the issue.`;
+
+  await vscode.env.clipboard.writeText(context);
+
+  // Try Cursor/Copilot chat commands
+  const chatCommands = [
+    "aichat.newchat",
+    "workbench.action.chat.open",
+    "composer.openNewChat",
+  ];
+  for (const cmd of chatCommands) {
+    try {
+      await vscode.commands.executeCommand(cmd, context);
+      vscode.window.showInformationMessage("Context sent to chat");
+      return;
+    } catch {
+      // Try next command
+    }
+  }
+
+  vscode.window.showInformationMessage(
+    "Context copied to clipboard. Open chat (Cmd+L) and paste to fix the issue."
+  );
+}
+
+/**
+ * Generate AI suggestion and add to comment
+ */
+async function generateSuggestionForComment(comment: ReviewComment) {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    vscode.window.showWarningMessage("No workspace folder open");
+    return;
+  }
+
+  const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, comment.file);
+
+  try {
+    const doc = await vscode.workspace.openTextDocument(fileUri);
+    const lineIdx = Math.max(0, comment.line - 1);
+    const start = Math.max(0, lineIdx - 2);
+    const end = Math.min(doc.lineCount, lineIdx + 3);
+    const codeSnippet = doc.getText(new vscode.Range(start, 0, end, 0));
+
+    const suggestedCode = await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "Generating suggested fix...",
+        cancellable: false,
+      },
+      () => generateCodeSuggestion(codeSnippet, comment.issue, comment.suggestion)
+    );
+
+    const suggestionBlock = `\n\n\`\`\`suggestion\n${suggestedCode}\n\`\`\``;
+    const currentBody = comment.editedText || `**${comment.issue}**\n\n${comment.suggestion || ""}`;
+    const newBody = currentBody.includes("```suggestion")
+      ? currentBody
+      : currentBody + suggestionBlock;
+
+    updateCommentText(comment.id, newBody);
+    updateCommentStatus(comment.id, "pending");
+
+    vscode.window.showInformationMessage("Suggested fix added to comment");
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    vscode.window.showErrorMessage(`Failed to generate suggestion: ${msg}`);
   }
 }
 

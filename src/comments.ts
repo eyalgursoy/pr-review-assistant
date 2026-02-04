@@ -181,12 +181,12 @@ function registerCommentCommands(context: vscode.ExtensionContext): void {
     )
   );
 
-  // Delete/dismiss thread
+  // Delete/dismiss thread - rejects comment AND removes from inline view
+  // (Reject alone keeps thread visible; Dismiss removes it from the editor)
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "prReview.comment.delete",
       (thread: vscode.CommentThread) => {
-        // Get the comment ID from the thread
         const comment = thread.comments[0] as PRReviewComment;
         if (comment) {
           updateCommentStatus(comment.id, "rejected");

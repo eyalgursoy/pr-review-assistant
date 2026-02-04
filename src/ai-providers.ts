@@ -1141,3 +1141,72 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no code blocks, no explana
     throw error;
   }
 }
+
+/**
+ * Generate a code suggestion for a specific issue
+ * Returns the suggested code to add to the comment
+ */
+export async function generateCodeSuggestion(
+  codeSnippet: string,
+  issue: string,
+  suggestion?: string
+): Promise<string> {
+  const provider = getAIProvider();
+  const apiKey = getAPIKey(provider);
+
+  if (provider === "none") {
+    throw new Error("No AI provider configured");
+  }
+  if (!apiKey && provider !== "vscode-lm" && provider !== "cursor-cli") {
+    throw new Error(`API key not configured for ${provider}`);
+  }
+
+  const prompt = `Generate a code fix for this issue. Return ONLY the fixed code snippet, no explanation or markdown.
+
+Code:
+\`\`\`
+${codeSnippet}
+\`\`\`
+
+Issue: ${issue}
+${suggestion ? `Suggestion: ${suggestion}` : ""}
+
+Return ONLY the fixed code:`;
+
+  let response: string;
+
+  try {
+    switch (provider) {
+      case "anthropic":
+        response = await callAnthropicStreaming(apiKey!, prompt);
+        break;
+      case "openai":
+        response = await callOpenAIStreaming(apiKey!, prompt);
+        break;
+      case "gemini":
+        response = await callGeminiStreaming(apiKey!, prompt);
+        break;
+      case "groq":
+        response = await callGroqStreaming(apiKey!, prompt);
+        break;
+      case "vscode-lm":
+        response = await callVSCodeLMStreaming(prompt);
+        break;
+      case "cursor-cli":
+        response = await callCursorCLI(prompt);
+        break;
+      default:
+        throw new Error(`Unknown provider: ${provider}`);
+    }
+  } catch (error) {
+    logError("generateCodeSuggestion failed", error);
+    throw error;
+  }
+
+  // Extract code from response (may be wrapped in markdown)
+  const codeBlockMatch = response.match(/```(?:[\w]*)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    return codeBlockMatch[1].trim();
+  }
+  return response.trim();
+}
