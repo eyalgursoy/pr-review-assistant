@@ -44,6 +44,7 @@ import {
   getLocalBranchInfo,
   fetchLocalDiff,
   parseDiffToChangedFiles,
+  getFileAtRevision,
 } from "./github";
 import { runAIReview, getAIProvider, generateCodeSuggestion } from "./ai-providers";
 import { buildReviewPrompt } from "./review-template";
@@ -291,6 +292,17 @@ function registerCommands(context: vscode.ExtensionContext) {
       async (arg: ReviewComment | { comment?: ReviewComment } | unknown) => {
         const comment = resolveCommentArg(arg);
         if (comment) await generateSuggestionForComment(comment);
+      }
+    )
+  );
+
+  // View Diff - side-by-side old vs new for comment's file
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "prReview.viewDiff",
+      async (arg: ReviewComment | { comment?: ReviewComment } | unknown) => {
+        const comment = resolveCommentArg(arg);
+        if (comment) await viewDiffForComment(comment);
       }
     )
   );
@@ -877,6 +889,50 @@ async function generateSuggestionForComment(comment: ReviewComment) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     vscode.window.showErrorMessage(`Failed to generate suggestion: ${msg}`);
+  }
+}
+
+/**
+ * View side-by-side diff for comment's file (old vs new)
+ */
+async function viewDiffForComment(comment: ReviewComment) {
+  const state = getState();
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    vscode.window.showWarningMessage("No workspace folder open");
+    return;
+  }
+
+  const baseBranch = state.pr?.baseBranch || "main";
+  const newUri = vscode.Uri.joinPath(workspaceFolder.uri, comment.file);
+
+  try {
+    const oldContent = await getFileAtRevision(comment.file, baseBranch);
+
+    const fs = await import("fs");
+    const path = await import("path");
+    const os = await import("os");
+    const tempDir = os.tmpdir();
+    const tempFile = path.join(
+      tempDir,
+      `pr-review-old-${path.basename(comment.file)}-${Date.now()}`
+    );
+    fs.writeFileSync(tempFile, oldContent, "utf-8");
+    const oldUri = vscode.Uri.file(tempFile);
+
+    await vscode.commands.executeCommand("vscode.diff", oldUri, newUri, `${comment.file} (${baseBranch} vs current)`);
+
+    // Clean up temp file after a delay (diff editor may still be reading it)
+    setTimeout(() => {
+      try {
+        fs.unlinkSync(tempFile);
+      } catch {
+        // Ignore
+      }
+    }, 60000);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    vscode.window.showErrorMessage(`Failed to show diff: ${msg}`);
   }
 }
 

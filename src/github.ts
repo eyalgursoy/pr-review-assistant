@@ -203,6 +203,27 @@ export async function fetchLocalDiff(baseBranch: string = "main"): Promise<strin
 export { parseDiffToChangedFiles } from "./diff-parser";
 
 /**
+ * Get file content at a git revision (branch/commit)
+ */
+export async function getFileAtRevision(
+  filePath: string,
+  revision: string
+): Promise<string> {
+  const cwd = getWorkspacePath();
+  if (!cwd) throw new Error("No workspace folder open");
+
+  try {
+    const { stdout } = await execAsync(
+      `git show "${revision}:${filePath}"`,
+      { cwd, maxBuffer: 5 * 1024 * 1024 }
+    );
+    return stdout;
+  } catch {
+    return ""; // File may not exist at that revision (e.g. new file)
+  }
+}
+
+/**
  * Approve a PR (LGTM) - used when user rejects all AI comments
  */
 export async function approvePR(

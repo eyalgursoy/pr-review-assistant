@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -144,6 +144,11 @@
         "icon": "$(lightbulb)"
       },
       {
+        "command": "prReview.viewDiff",
+        "title": "View Diff",
+        "icon": "$(diff)"
+      },
+      {
         "command": "prReview.comment.approveAll",
         "title": "Approve All Pending",
         "icon": "$(check-all)"
@@ -202,6 +207,11 @@
           "command": "prReview.generateSuggestion",
           "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
           "group": "inline@5"
+        },
+        {
+          "command": "prReview.viewDiff",
+          "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
+          "group": "inline@6"
         }
       ],
       "comments/commentThread/title": [
@@ -228,6 +238,11 @@
         {
           "command": "prReview.generateSuggestion",
           "group": "inline@5",
+          "when": "commentController == prReviewAssistant"
+        },
+        {
+          "command": "prReview.viewDiff",
+          "group": "inline@6",
           "when": "commentController == prReviewAssistant"
         }
       ],
