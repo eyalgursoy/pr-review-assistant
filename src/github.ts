@@ -18,23 +18,7 @@ function getWorkspacePath(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
-/**
- * Parse a GitHub PR URL
- * Formats: https://github.com/owner/repo/pull/123
- */
-export function parsePRUrl(
-  url: string
-): { owner: string; repo: string; number: number } | null {
-  const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
-  if (match) {
-    return {
-      owner: match[1],
-      repo: match[2],
-      number: parseInt(match[3], 10),
-    };
-  }
-  return null;
-}
+export { parsePRUrl } from "./url-utils";
 
 /**
  * Check if gh CLI is available and authenticated
@@ -161,6 +145,62 @@ export async function fetchBranchDiff(
 
   return stdout;
 }
+
+/**
+ * Get current branch name and base branch (main or master)
+ */
+export async function getLocalBranchInfo(): Promise<{
+  branch: string;
+  baseBranch: string;
+}> {
+  const cwd = getWorkspacePath();
+  if (!cwd) {
+    throw new Error("No workspace folder open");
+  }
+
+  const { stdout: branch } = await execAsync("git branch --show-current", {
+    cwd,
+  });
+  const currentBranch = branch.trim();
+  if (!currentBranch) {
+    throw new Error("Not on a branch (detached HEAD)");
+  }
+
+  // Try main first, then master
+  let baseBranch = "main";
+  try {
+    await execAsync("git rev-parse main", { cwd });
+  } catch {
+    try {
+      await execAsync("git rev-parse master", { cwd });
+      baseBranch = "master";
+    } catch {
+      throw new Error("Neither main nor master branch found");
+    }
+  }
+
+  return { branch: currentBranch, baseBranch };
+}
+
+/**
+ * Fetch local diff (current branch vs main/master)
+ * Uses git diff baseBranch...HEAD - no network required
+ */
+export async function fetchLocalDiff(baseBranch: string = "main"): Promise<string> {
+  const cwd = getWorkspacePath();
+  if (!cwd) {
+    throw new Error("No workspace folder open");
+  }
+
+  const { stdout } = await execAsync(
+    `git diff ${baseBranch}...HEAD --no-color`,
+    { cwd, maxBuffer: 50 * 1024 * 1024 }
+  );
+
+  return stdout;
+}
+
+export { parseDiffToChangedFiles } from "./diff-parser";
 
 /**
  * Submit review comments to GitHub PR

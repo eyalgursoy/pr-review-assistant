@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -44,7 +44,7 @@
     "viewsWelcome": [
       {
         "view": "prReviewAssistant",
-        "contents": "Start an AI-powered PR review.\n[Start Review](command:prReview.startReview)"
+        "contents": "Start an AI-powered PR review.\n[Start Review](command:prReview.startReview)\n[Review Local Changes](command:prReview.reviewLocalChanges)"
       }
     ],
     "commands": [
@@ -52,6 +52,11 @@
         "command": "prReview.startReview",
         "title": "Start Review",
         "icon": "$(play)"
+      },
+      {
+        "command": "prReview.reviewLocalChanges",
+        "title": "Review Local Changes",
+        "icon": "$(git-branch)"
       },
       {
         "command": "prReview.runAiReview",

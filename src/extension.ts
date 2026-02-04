@@ -17,6 +17,7 @@ import {
   getState,
   resetState,
   setPRInfo,
+  setLocalMode,
   setFiles,
   setDiff,
   setLoading,
@@ -38,6 +39,9 @@ import {
   fetchChangedFiles,
   fetchPRDiff,
   submitReviewComments,
+  getLocalBranchInfo,
+  fetchLocalDiff,
+  parseDiffToChangedFiles,
 } from "./github";
 import { runAIReview, getAIProvider } from "./ai-providers";
 import { buildReviewPrompt } from "./review-template";
@@ -79,10 +83,18 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Update status bar when state changes
   onStateChange(() => {
+    const state = getState();
     const approved = getApprovedComments().length;
     const pending = getPendingComments().length;
 
-    if (approved > 0 && pending === 0) {
+    // Only show submit in PR mode (not local review)
+    if (
+      approved > 0 &&
+      pending === 0 &&
+      !state.isLocalMode &&
+      state.pr &&
+      state.pr.number > 0
+    ) {
       submitStatusBar.text = `$(cloud-upload) Submit PR Review (${approved})`;
       submitStatusBar.tooltip = `Submit ${approved} approved comment(s) to GitHub`;
       submitStatusBar.show();
@@ -137,6 +149,13 @@ function registerCommands(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("prReview.startReview", async () => {
       await startReview();
+    })
+  );
+
+  // Review Local Changes - diff current branch vs main
+  context.subscriptions.push(
+    vscode.commands.registerCommand("prReview.reviewLocalChanges", async () => {
+      await reviewLocalChanges();
     })
   );
 
@@ -343,6 +362,60 @@ async function startReview() {
 }
 
 /**
+ * Review local branch changes (diff against main)
+ */
+async function reviewLocalChanges() {
+  resetState();
+  resetProgress();
+  startProgress();
+  setLoading(true);
+
+  try {
+    updateStage("fetching-pr", "Getting branch info...");
+    const { branch, baseBranch } = await getLocalBranchInfo();
+    setLocalMode(branch, baseBranch);
+
+    updateStage("loading-diff", "Loading local diff...");
+    const diff = await fetchLocalDiff(baseBranch);
+
+    if (!diff || diff.trim().length === 0) {
+      setLoading(false);
+      resetProgress();
+      vscode.window.showInformationMessage(
+        "No changes to review. Your branch is up to date with " + baseBranch + "."
+      );
+      return;
+    }
+
+    setDiff(diff);
+
+    const files = parseDiffToChangedFiles(diff);
+    setFiles(files);
+
+    setLoading(false);
+    resetProgress();
+
+    // Auto-run AI
+    const config = vscode.workspace.getConfiguration("prReview");
+    if (config.get<boolean>("autoRunAi")) {
+      await runReview();
+    } else {
+      const runAi = await vscode.window.showInformationMessage(
+        `Loaded ${branch} → ${baseBranch} (${files.length} files changed)`,
+        "Run AI Review"
+      );
+      if (runAi) {
+        await runReview();
+      }
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    setError(msg);
+    vscode.window.showErrorMessage(`Failed to load local diff: ${msg}`);
+  }
+}
+
+/**
  * Load PR files
  */
 async function loadPRFiles(owner: string, repo: string, prNumber: number) {
@@ -456,7 +529,8 @@ async function runReview() {
  * Check if all comments have been reviewed and show a helpful toast
  */
 async function checkAllCommentsReviewed(): Promise<void> {
-  if (allCommentsReviewed()) {
+  const state = getState();
+  if (allCommentsReviewed() && !state.isLocalMode) {
     const approved = getApprovedComments();
     const pending = getPendingComments();
 
@@ -482,6 +556,13 @@ async function submitReview() {
 
   if (!state.pr) {
     vscode.window.showWarningMessage("No PR loaded.");
+    return;
+  }
+
+  if (state.isLocalMode) {
+    vscode.window.showInformationMessage(
+      "This is a local review. Create a PR on GitHub to submit comments."
+    );
     return;
   }
 

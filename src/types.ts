@@ -73,6 +73,8 @@ export interface ChangedFile {
  */
 export interface ReviewState {
   pr: PRInfo | null;
+  /** True when reviewing local branch diff (no GitHub PR) */
+  isLocalMode: boolean;
   files: ChangedFile[];
   diff: string;
   summary: string | null;

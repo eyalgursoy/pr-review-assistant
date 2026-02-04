@@ -13,6 +13,7 @@ import type {
 
 let state: ReviewState = {
   pr: null,
+  isLocalMode: false,
   files: [],
   diff: "",
   summary: null,
@@ -37,6 +38,7 @@ export function getState(): ReviewState {
 export function resetState(): void {
   state = {
     pr: null,
+    isLocalMode: false,
     files: [],
     diff: "",
     summary: null,
@@ -66,7 +68,30 @@ export function getSummary(): string | null {
  * Set PR info
  */
 export function setPRInfo(pr: PRInfo): void {
-  state = { ...state, pr, error: null };
+  state = { ...state, pr, isLocalMode: false, error: null };
+  updateContextKeys();
+  stateChangeEmitter.fire(state);
+}
+
+/**
+ * Set local review mode (no GitHub PR)
+ * Uses synthetic PR info for display
+ */
+export function setLocalMode(branch: string, baseBranch: string): void {
+  state = {
+    ...state,
+    pr: {
+      number: 0,
+      owner: "",
+      repo: "",
+      title: "Local Review",
+      headBranch: branch,
+      baseBranch,
+      url: "",
+    },
+    isLocalMode: true,
+    error: null,
+  };
   updateContextKeys();
   stateChangeEmitter.fire(state);
 }
@@ -230,8 +255,9 @@ function updateContextKeys(): void {
   const pendingComments = getPendingComments();
   const hasPendingComments = pendingComments.length > 0;
 
-  // Ready to submit: has approved comments AND no pending comments
-  const readyToSubmit = hasApprovedComments && !hasPendingComments;
+  // Ready to submit: has approved comments AND no pending AND not local mode
+  const readyToSubmit =
+    hasApprovedComments && !hasPendingComments && !state.isLocalMode;
 
   vscode.commands.executeCommand("setContext", "prReview.hasReview", hasReview);
   vscode.commands.executeCommand("setContext", "prReview.hasFiles", hasFiles);

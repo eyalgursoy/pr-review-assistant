@@ -231,18 +231,40 @@ export class PRReviewTreeProvider
       return []; // Will show viewsWelcome content
     }
 
-    // PR Info
-    items.push({
-      type: "pr-info",
-      label: `PR #${state.pr.number}`,
-      description: state.pr.title,
-    });
+    // PR Info or Local Review
+    if (state.isLocalMode) {
+      items.push({
+        type: "pr-info",
+        label: "Local Review",
+        description: state.pr!.title,
+      });
+    } else {
+      items.push({
+        type: "pr-info",
+        label: `PR #${state.pr!.number}`,
+        description: state.pr!.title,
+      });
+    }
 
     items.push({
       type: "pr-info",
-      label: `${state.pr.headBranch} → ${state.pr.baseBranch}`,
-      description: `${state.pr.owner}/${state.pr.repo}`,
+      label: `${state.pr!.headBranch} → ${state.pr!.baseBranch}`,
+      description: state.isLocalMode ? "Local diff" : `${state.pr!.owner}/${state.pr!.repo}`,
     });
+
+    // No comments found message (review complete, files changed, no issues)
+    const allComments = getAllComments();
+    if (
+      !state.isLoading &&
+      state.files.length > 0 &&
+      allComments.length === 0
+    ) {
+      items.push({
+        type: "status",
+        label: "No issues found! Your code looks great.",
+        description: "✓",
+      });
+    }
 
     // Changed Files section
     if (state.files.length > 0) {
@@ -254,7 +276,6 @@ export class PRReviewTreeProvider
     }
 
     // Review Summary section (if there are comments)
-    const allComments = getAllComments();
     if (allComments.length > 0) {
       items.push({
         type: "section",
@@ -310,8 +331,8 @@ export class PRReviewTreeProvider
       });
     }
 
-    // Show prominent submit action when all comments are reviewed
-    if (pending === 0 && approved > 0) {
+    // Show prominent submit action when all comments are reviewed (PR mode only)
+    if (pending === 0 && approved > 0 && !state.isLocalMode) {
       items.push({
         type: "action",
         label: "━━━ Submit PR Review ━━━",
