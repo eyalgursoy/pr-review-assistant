@@ -235,6 +235,14 @@ export function allCommentsReviewed(): boolean {
 }
 
 /**
+ * Check if all comments were rejected (user disagrees with AI)
+ */
+export function allCommentsRejected(): boolean {
+  const all = getAllComments();
+  return all.length > 0 && all.every((c) => c.status === "rejected");
+}
+
+/**
  * Get comments for a specific file
  */
 export function getCommentsForFile(filePath: string): ReviewComment[] {
@@ -259,6 +267,9 @@ function updateContextKeys(): void {
   const readyToSubmit =
     hasApprovedComments && !hasPendingComments && !state.isLocalMode;
 
+  // All rejected: user disagrees with AI, can approve PR
+  const allRejected = allComments.length > 0 && allComments.every((c) => c.status === "rejected");
+
   vscode.commands.executeCommand("setContext", "prReview.hasReview", hasReview);
   vscode.commands.executeCommand("setContext", "prReview.hasFiles", hasFiles);
   vscode.commands.executeCommand(
@@ -275,5 +286,10 @@ function updateContextKeys(): void {
     "setContext",
     "prReview.readyToSubmit",
     readyToSubmit
+  );
+  vscode.commands.executeCommand(
+    "setContext",
+    "prReview.allRejected",
+    allRejected && !state.isLocalMode
   );
 }

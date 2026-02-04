@@ -203,6 +203,51 @@ export async function fetchLocalDiff(baseBranch: string = "main"): Promise<strin
 export { parseDiffToChangedFiles } from "./diff-parser";
 
 /**
+ * Approve a PR (LGTM) - used when user rejects all AI comments
+ */
+export async function approvePR(
+  pr: PRInfo,
+  body: string = "LGTM! Code reviewed with PR Review Assistant."
+): Promise<{ success: boolean; message: string; url?: string }> {
+  const cwd = getWorkspacePath();
+  const tempFile = path.join(os.tmpdir(), `pr-review-approve-${Date.now()}.json`);
+
+  const payload = {
+    event: "APPROVE",
+    body,
+  };
+
+  try {
+    await writeFileAsync(tempFile, JSON.stringify(payload, null, 2), "utf-8");
+
+    const { stdout } = await execAsync(
+      `gh api repos/${pr.owner}/${pr.repo}/pulls/${pr.number}/reviews --method POST --input "${tempFile}"`,
+      { cwd }
+    );
+
+    const response = JSON.parse(stdout);
+
+    return {
+      success: true,
+      message: `PR #${pr.number} approved`,
+      url: response.html_url,
+    };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      message: `Failed to approve: ${msg}`,
+    };
+  } finally {
+    try {
+      await unlinkAsync(tempFile);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}
+
+/**
  * Submit review comments to GitHub PR
  */
 export async function submitReviewComments(

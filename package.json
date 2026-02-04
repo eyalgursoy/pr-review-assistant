@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -67,6 +67,11 @@
         "command": "prReview.submitReview",
         "title": "Submit PR Review",
         "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "prReview.approvePR",
+        "title": "Approve PR",
+        "icon": "$(check-all)"
       },
       {
         "command": "prReview.approveComment",

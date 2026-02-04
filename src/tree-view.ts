@@ -11,6 +11,7 @@ import {
   getApprovedComments,
   getPendingComments,
   allCommentsReviewed,
+  allCommentsRejected,
 } from "./state";
 import {
   getProgress,
@@ -119,12 +120,12 @@ export class PRReviewTreeProvider
         break;
 
       case "action":
-        // Use cloud-upload icon for submit action, play for others
+        // Use appropriate icon per action
         const isSubmit = element.actionCommand === "prReview.submitReview";
-        item.iconPath = new vscode.ThemeIcon(
-          isSubmit ? "cloud-upload" : "play",
-          isSubmit ? new vscode.ThemeColor("charts.green") : undefined
-        );
+        const isApprove = element.actionCommand === "prReview.approvePR";
+        const iconName = isSubmit ? "cloud-upload" : isApprove ? "check-all" : "play";
+        const iconColor = isSubmit || isApprove ? new vscode.ThemeColor("charts.green") : undefined;
+        item.iconPath = new vscode.ThemeIcon(iconName, iconColor);
         item.collapsibleState = vscode.TreeItemCollapsibleState.None;
         item.contextValue = "action";
         item.command = {
@@ -338,6 +339,16 @@ export class PRReviewTreeProvider
         label: "━━━ Submit PR Review ━━━",
         description: `${approved} comment(s) ready`,
         actionCommand: "prReview.submitReview",
+      });
+    }
+
+    // Show approve PR when all comments rejected (PR mode only)
+    if (allCommentsRejected() && !state.isLocalMode) {
+      items.push({
+        type: "action",
+        label: "All comments rejected - Approve PR?",
+        description: "LGTM",
+        actionCommand: "prReview.approvePR",
       });
     }
 

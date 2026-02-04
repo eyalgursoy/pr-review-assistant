@@ -30,6 +30,7 @@ import {
   getApprovedComments,
   getPendingComments,
   allCommentsReviewed,
+  allCommentsRejected,
   onStateChange,
 } from "./state";
 import {
@@ -39,6 +40,7 @@ import {
   fetchChangedFiles,
   fetchPRDiff,
   submitReviewComments,
+  approvePR,
   getLocalBranchInfo,
   fetchLocalDiff,
   parseDiffToChangedFiles,
@@ -70,36 +72,44 @@ export function activate(context: vscode.ExtensionContext) {
   });
   context.subscriptions.push(treeView);
 
-  // Create status bar item for submit button (visible when ready)
-  const submitStatusBar = vscode.window.createStatusBarItem(
+  // Create status bar item for submit/approve (visible when ready)
+  const reviewStatusBar = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
     100
   );
-  submitStatusBar.command = "prReview.submitReview";
-  submitStatusBar.backgroundColor = new vscode.ThemeColor(
-    "statusBarItem.warningBackground"
-  );
-  context.subscriptions.push(submitStatusBar);
+  context.subscriptions.push(reviewStatusBar);
 
   // Update status bar when state changes
   onStateChange(() => {
     const state = getState();
     const approved = getApprovedComments().length;
     const pending = getPendingComments().length;
+    const rejected = allCommentsRejected();
 
-    // Only show submit in PR mode (not local review)
-    if (
-      approved > 0 &&
-      pending === 0 &&
-      !state.isLocalMode &&
-      state.pr &&
-      state.pr.number > 0
-    ) {
-      submitStatusBar.text = `$(cloud-upload) Submit PR Review (${approved})`;
-      submitStatusBar.tooltip = `Submit ${approved} approved comment(s) to GitHub`;
-      submitStatusBar.show();
+    // Only show in PR mode (not local review)
+    if (state.isLocalMode || !state.pr || state.pr.number === 0) {
+      reviewStatusBar.hide();
+      return;
+    }
+
+    if (approved > 0 && pending === 0) {
+      reviewStatusBar.command = "prReview.submitReview";
+      reviewStatusBar.text = `$(cloud-upload) Submit PR Review (${approved})`;
+      reviewStatusBar.tooltip = `Submit ${approved} approved comment(s) to GitHub`;
+      reviewStatusBar.backgroundColor = new vscode.ThemeColor(
+        "statusBarItem.warningBackground"
+      );
+      reviewStatusBar.show();
+    } else if (rejected) {
+      reviewStatusBar.command = "prReview.approvePR";
+      reviewStatusBar.text = `$(check-all) Approve PR`;
+      reviewStatusBar.tooltip = "All comments rejected - Approve PR with LGTM";
+      reviewStatusBar.backgroundColor = new vscode.ThemeColor(
+        "statusBarItem.prominentBackground"
+      );
+      reviewStatusBar.show();
     } else {
-      submitStatusBar.hide();
+      reviewStatusBar.hide();
     }
   });
 
@@ -170,6 +180,13 @@ function registerCommands(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("prReview.submitReview", async () => {
       await submitReview();
+    })
+  );
+
+  // Approve PR (when all comments rejected)
+  context.subscriptions.push(
+    vscode.commands.registerCommand("prReview.approvePR", async () => {
+      await approvePRFlow();
     })
   );
 
@@ -616,6 +633,70 @@ async function submitReview() {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     vscode.window.showErrorMessage(`Failed to submit: ${msg}`);
+  }
+}
+
+/**
+ * Approve PR with LGTM (when all comments rejected)
+ */
+async function approvePRFlow() {
+  const state = getState();
+
+  if (!state.pr || state.isLocalMode) {
+    vscode.window.showWarningMessage("No PR loaded or local review mode.");
+    return;
+  }
+
+  if (state.pr.number === 0) {
+    vscode.window.showWarningMessage("Cannot approve local review.");
+    return;
+  }
+
+  const summary = getSummary();
+  const defaultBody = summary
+    ? `LGTM! ${summary}`
+    : "LGTM! Code reviewed with PR Review Assistant.";
+
+  const body = await vscode.window.showInputBox({
+    prompt: "Approve PR - optional comment (or press Enter for default)",
+    value: defaultBody,
+    placeHolder: "LGTM! ...",
+  });
+
+  if (body === undefined) return; // User cancelled
+
+  const confirm = await vscode.window.showInformationMessage(
+    `Approve PR #${state.pr.number}?`,
+    { modal: true },
+    "Approve"
+  );
+
+  if (confirm !== "Approve") return;
+
+  try {
+    const result = await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "Approving PR...",
+        cancellable: false,
+      },
+      async () => approvePR(state.pr!, body || defaultBody)
+    );
+
+    if (result.success) {
+      const selected = await vscode.window.showInformationMessage(
+        result.message,
+        ...(result.url ? ["View on GitHub"] : [])
+      );
+      if (selected === "View on GitHub" && result.url) {
+        vscode.env.openExternal(vscode.Uri.parse(result.url));
+      }
+    } else {
+      vscode.window.showErrorMessage(result.message);
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    vscode.window.showErrorMessage(`Failed to approve: ${msg}`);
   }
 }
 
