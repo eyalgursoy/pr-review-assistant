@@ -29,6 +29,7 @@ import {
   updateCommentText,
   getApprovedComments,
   getPendingComments,
+  getRejectedComments,
   allCommentsReviewed,
   allCommentsRejected,
   onStateChange,
@@ -580,21 +581,32 @@ async function runReview() {
  * Check if all comments have been reviewed and show a helpful toast
  */
 async function checkAllCommentsReviewed(): Promise<void> {
+  if (!allCommentsReviewed()) return;
+
   const state = getState();
-  if (allCommentsReviewed() && !state.isLocalMode) {
-    const approved = getApprovedComments();
-    const pending = getPendingComments();
+  const approved = getApprovedComments();
+  const pending = getPendingComments();
 
-    if (approved.length > 0 && pending.length === 0) {
-      const action = await vscode.window.showInformationMessage(
-        `All comments reviewed! ${approved.length} approved and ready to submit.`,
-        "Submit PR Review",
-        "Dismiss"
-      );
+  if (pending.length > 0) return;
 
-      if (action === "Submit PR Review") {
-        vscode.commands.executeCommand("prReview.submitReview");
-      }
+  if (state.isLocalMode) {
+    // Local flow: show completion message (no submit option)
+    vscode.window.showInformationMessage(
+      `All comments reviewed! ${approved.length} approved, ${getRejectedComments().length} rejected. Review complete.`
+    );
+    return;
+  }
+
+  // PR flow: show submit option
+  if (approved.length > 0) {
+    const action = await vscode.window.showInformationMessage(
+      `All comments reviewed! ${approved.length} approved and ready to submit.`,
+      "Submit PR Review",
+      "Dismiss"
+    );
+
+    if (action === "Submit PR Review") {
+      vscode.commands.executeCommand("prReview.submitReview");
     }
   }
 }
