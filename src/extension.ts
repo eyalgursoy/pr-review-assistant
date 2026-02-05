@@ -57,14 +57,157 @@ import {
   errorProgress,
 } from "./streaming-progress";
 import type { ReviewComment } from "./types";
+import {
+  getCurrentBranch,
+  hasUncommittedChanges,
+  stashAndCheckout,
+  checkoutBranch,
+  findStashByMessage,
+  popStash,
+  checkout,
+  type RestoreStackEntry,
+} from "./git-utils";
+
+const RESTORE_STACK_KEY = "prReview.restoreStack";
 
 let treeProvider: PRReviewTreeProvider;
 let decorations: ReturnType<typeof createCommentDecorations>;
+let extensionContext: vscode.ExtensionContext;
+
+function getRestoreStack(): RestoreStackEntry[] {
+  const raw = extensionContext.globalState.get<RestoreStackEntry[]>(
+    RESTORE_STACK_KEY
+  );
+  return Array.isArray(raw) ? raw : [];
+}
+
+function setRestoreStack(stack: RestoreStackEntry[]): void {
+  extensionContext.globalState.update(RESTORE_STACK_KEY, stack);
+}
+
+/**
+ * Restore branch(es) and stashes from the restore stack (reverse order).
+ * Clears the stack on success. On stash pop conflict, leaves stash in place.
+ */
+async function restoreFromStack(): Promise<void> {
+  const stack = getRestoreStack();
+  if (stack.length === 0) return;
+
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const entry = stack[i];
+    try {
+      await checkout(entry.branch);
+      if (entry.stashMessage) {
+        const ref = await findStashByMessage(entry.stashMessage);
+        if (ref) {
+          try {
+            await popStash(ref);
+          } catch (popErr) {
+            const msg =
+              popErr instanceof Error ? popErr.message : String(popErr);
+            vscode.window.showErrorMessage(
+              `Stash pop failed: ${msg}. Resolve manually and run \`git stash pop\`.`
+            );
+            // Leave remaining entries for retry; don't clear stack
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      vscode.window.showErrorMessage(`Restore failed: ${msg}`);
+      return;
+    }
+  }
+  setRestoreStack([]);
+}
+
+/**
+ * Ensure we're on the PR head branch. Stash if needed, push to restore stack.
+ * Returns true to proceed, false to abort.
+ */
+async function ensureBranchForReview(
+  headBranch: string,
+  isSwitchingReview: boolean
+): Promise<boolean> {
+  const config = vscode.workspace.getConfiguration("prReview");
+  if (!config.get<boolean>("checkoutPrBranch", true)) {
+    vscode.window.showWarningMessage(
+      "PR branch checkout disabled. Comments may drift if you're on a different branch."
+    );
+    return true;
+  }
+
+  try {
+    const currentBranch = await getCurrentBranch();
+    if (currentBranch === headBranch) return true;
+
+    const dirty = await hasUncommittedChanges();
+    if (dirty && !isSwitchingReview) {
+      const choice = await vscode.window.showWarningMessage(
+        "You have uncommitted changes. Stash and switch to PR branch for accurate line numbers?",
+        "Stash & Switch",
+        "Continue Anyway",
+        "Cancel"
+      );
+      if (choice === "Cancel") return false;
+      if (choice === "Continue Anyway") {
+        vscode.window.showWarningMessage(
+          "Continuing without checkout. Comments may point to wrong lines."
+        );
+        return true;
+      }
+      // Stash & Switch
+      const entry = await stashAndCheckout(currentBranch, headBranch);
+      setRestoreStack([...getRestoreStack(), entry]);
+      return true;
+    }
+
+    if (dirty && isSwitchingReview) {
+      const entry = await stashAndCheckout(currentBranch, headBranch);
+      setRestoreStack([...getRestoreStack(), entry]);
+      return true;
+    }
+
+    // Clean
+    const entry = await checkoutBranch(currentBranch, headBranch);
+    setRestoreStack([...getRestoreStack(), entry]);
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    vscode.window.showErrorMessage(`Branch checkout failed: ${msg}`);
+    return false;
+  }
+}
+
+/**
+ * On activation: if restore stack has entries, prompt to restore.
+ */
+async function checkPendingRestoreOnActivation(): Promise<void> {
+  const stack = getRestoreStack();
+  if (stack.length === 0) return;
+
+  const choice = await vscode.window.showInformationMessage(
+    "PR Review: You were reviewing a PR. Restore your previous branch(es)?",
+    "Restore",
+    "Dismiss"
+  );
+  if (choice === "Restore") {
+    await restoreFromStack();
+  } else if (choice === "Dismiss") {
+    setRestoreStack([]);
+  }
+}
 
 export function activate(context: vscode.ExtensionContext) {
+  extensionContext = context;
+
   // Initialize logger first
   initLogger(context);
   log("PR Review Assistant activated");
+
+  // Check for pending restore (user closed IDE without clearing review)
+  checkPendingRestoreOnActivation();
 
   // Create tree view provider
   treeProvider = new PRReviewTreeProvider();
@@ -194,7 +337,8 @@ function registerCommands(context: vscode.ExtensionContext) {
 
   // Clear Review
   context.subscriptions.push(
-    vscode.commands.registerCommand("prReview.clearReview", () => {
+    vscode.commands.registerCommand("prReview.clearReview", async () => {
+      await restoreFromStack();
       resetState();
       vscode.window.showInformationMessage("Review cleared");
     })
@@ -368,6 +512,8 @@ async function startReview() {
     return;
   }
 
+  const hadActiveReview = !!getState().pr;
+
   // Reset and load new PR
   resetState();
   resetProgress();
@@ -379,6 +525,18 @@ async function startReview() {
     updateStage("fetching-pr", "Fetching PR information...");
     const prInfo = await fetchPRInfo(parsed.owner, parsed.repo, parsed.number);
     setPRInfo(prInfo);
+
+    // Checkout PR branch for accurate line numbers
+    updateStage("fetching-pr", "Checking out PR branch...");
+    const proceed = await ensureBranchForReview(
+      prInfo.headBranch,
+      hadActiveReview
+    );
+    if (!proceed) {
+      setLoading(false);
+      resetProgress();
+      return;
+    }
 
     // Fetch changed files
     updateStage("loading-diff", "Loading changed files...");

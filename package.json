@@ -361,6 +361,11 @@
           "type": "boolean",
           "default": false,
           "description": "Show 'View Log' prompt after AI review completes (useful for debugging)"
+        },
+        "prReview.checkoutPrBranch": {
+          "type": "boolean",
+          "default": true,
+          "description": "Checkout PR branch when reviewing for accurate line numbers. If disabled, comments may drift if you're on a different branch."
         }
       }
     }
