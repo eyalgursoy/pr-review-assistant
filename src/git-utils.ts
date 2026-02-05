@@ -32,6 +32,16 @@ export async function getCurrentBranch(): Promise<string> {
 }
 
 /**
+ * Fetch from remote to refresh branch list
+ */
+export async function gitFetch(): Promise<void> {
+  const cwd = getWorkspacePath();
+  if (!cwd) throw new Error("No workspace folder open");
+
+  await execAsync("git fetch", { cwd });
+}
+
+/**
  * Check if working directory has uncommitted changes
  */
 export async function hasUncommittedChanges(): Promise<boolean> {

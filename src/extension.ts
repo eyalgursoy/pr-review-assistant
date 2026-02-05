@@ -60,6 +60,7 @@ import type { ReviewComment } from "./types";
 import {
   getCurrentBranch,
   hasUncommittedChanges,
+  gitFetch,
   stashAndCheckout,
   checkoutBranch,
   findStashByMessage,
@@ -141,6 +142,8 @@ async function ensureBranchForReview(
   try {
     const currentBranch = await getCurrentBranch();
     if (currentBranch === headBranch) return true;
+
+    await gitFetch();
 
     const dirty = await hasUncommittedChanges();
     if (dirty && !isSwitchingReview) {
