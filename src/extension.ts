@@ -72,6 +72,7 @@ import {
 const RESTORE_STACK_KEY = "prReview.restoreStack";
 
 let treeProvider: PRReviewTreeProvider;
+let treeView: vscode.TreeView<unknown>;
 let decorations: ReturnType<typeof createCommentDecorations>;
 let extensionContext: vscode.ExtensionContext;
 
@@ -184,6 +185,22 @@ async function ensureBranchForReview(
 }
 
 /**
+ * Focus the PR Review Assistant tree view (in Source Control sidebar).
+ * Call when AI review completes so the user sees the comments.
+ */
+function focusCommentsView(): void {
+  try {
+    vscode.commands.executeCommand("workbench.view.scm");
+    const rootItems = treeProvider.getChildren(undefined);
+    if (rootItems && rootItems.length > 0) {
+      treeView.reveal(rootItems[0], { focus: true });
+    }
+  } catch {
+    // Ignore - view may not be ready
+  }
+}
+
+/**
  * On activation: if restore stack has entries, prompt to restore.
  */
 async function checkPendingRestoreOnActivation(): Promise<void> {
@@ -214,7 +231,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Create tree view provider
   treeProvider = new PRReviewTreeProvider();
-  const treeView = vscode.window.createTreeView("prReviewAssistant", {
+  treeView = vscode.window.createTreeView("prReviewAssistant", {
     treeDataProvider: treeProvider,
     showCollapseAll: true,
   });
@@ -699,12 +716,15 @@ async function runReview() {
     setSummary(result.summary);
 
     if (result.comments.length === 0) {
+      focusCommentsView();
       vscode.window.showInformationMessage(
         result.summary || "AI found no issues in this PR!"
       );
     } else {
       addComments(result.comments);
       log(`Added ${result.comments.length} comments to state`);
+
+      focusCommentsView();
 
       // Check if user wants to see log prompt
       const config = vscode.workspace.getConfiguration("prReview");
