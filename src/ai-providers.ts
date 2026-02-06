@@ -5,6 +5,7 @@
 
 import * as vscode from "vscode";
 import { log, logError, logSection } from "./logger";
+import { validateExecutablePath } from "./shell-utils";
 import {
   updateStage,
   updateStreamingProgress,
@@ -194,7 +195,7 @@ export async function runAIReview(
   logSection("AI REVIEW REQUEST");
   log(`Provider: ${provider}`);
   log(`Diff length: ${diff.length} characters`);
-  log(`Diff preview (first 500 chars):`, diff.substring(0, 500));
+  log(`Diff preview (first 100 chars):`, diff.substring(0, 100) + (diff.length > 100 ? "..." : ""));
 
   updateStage("preparing-prompt", "Preparing AI prompt...");
 
@@ -293,7 +294,7 @@ IMPORTANT:
 
   logSection("AI RESPONSE");
   log(`Response length: ${response.length} characters`);
-  log(`Full response:`, response);
+  log(`Response preview (truncated):`, response.substring(0, 200) + (response.length > 200 ? "..." : ""));
 
   const result = parseAIResponse(response);
 
@@ -380,7 +381,7 @@ function parseAIResponse(response: string): AIReviewResult {
 
   jsonStr = jsonStr.slice(startIdx, endIdx + 1);
   log(`Extracted JSON length: ${jsonStr.length}`);
-  log(`Extracted JSON preview:`, jsonStr.substring(0, 500));
+  log(`Extracted JSON preview (truncated):`, jsonStr.substring(0, 200) + (jsonStr.length > 200 ? "..." : ""));
 
   // Step 3: Clean up common JSON issues
   jsonStr = cleanJsonString(jsonStr);
@@ -983,6 +984,53 @@ async function ensureCursorCLIInstalled(): Promise<string | null> {
 }
 
 /**
+ * Run agent binary with prompt from file via stdin (no shell - prevents injection)
+ */
+async function runAgentWithStdin(
+  agentPath: string,
+  promptFile: string,
+  timeoutMs: number
+): Promise<string> {
+  const { spawn } = await import("child_process");
+  const fs = await import("fs");
+
+  return new Promise((resolve, reject) => {
+
+    const stdinStream = fs.createReadStream(promptFile);
+    const child = spawn(agentPath, ["-p", "--output-format", "text"], {
+      stdio: [stdinStream, "pipe", "pipe"],
+      cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+    });
+
+    const chunks: Buffer[] = [];
+    const errChunks: Buffer[] = [];
+
+    child.stdout?.on("data", (chunk: Buffer) => chunks.push(chunk));
+    child.stderr?.on("data", (chunk: Buffer) => errChunks.push(chunk));
+
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error("Cursor CLI timed out"));
+    }, timeoutMs);
+
+    child.on("close", (_code: number) => {
+      clearTimeout(timeout);
+      const stdout = Buffer.concat(chunks).toString("utf-8");
+      const stderr = Buffer.concat(errChunks).toString("utf-8");
+      if (stderr) {
+        log("Cursor CLI stderr (truncated):", stderr.substring(0, 200));
+      }
+      resolve(stdout || stderr || "");
+    });
+
+    child.on("error", (err: Error) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+  });
+}
+
+/**
  * Cursor CLI Agent
  * Uses the Cursor CLI `agent` command for code review
  * Requires: curl https://cursor.com/install -fsSL | bash
@@ -991,7 +1039,6 @@ async function ensureCursorCLIInstalled(): Promise<string | null> {
 async function callCursorCLI(prompt: string): Promise<string> {
   log("Calling Cursor CLI Agent...");
 
-  // Check if CLI is installed, offer to install if not
   const agentPath = await ensureCursorCLIInstalled();
   if (!agentPath) {
     throw new Error(
@@ -999,18 +1046,14 @@ async function callCursorCLI(prompt: string): Promise<string> {
     );
   }
 
-  const { exec } = await import("child_process");
-  const { promisify } = await import("util");
-  const execAsync = promisify(exec);
+  validateExecutablePath(agentPath);
 
-  // Create a temporary file with the prompt (to avoid shell escaping issues)
-  const os = await import("os");
   const fs = await import("fs");
   const path = await import("path");
+  const os = await import("os");
   const tempDir = os.tmpdir();
   const promptFile = path.join(tempDir, `pr-review-prompt-${Date.now()}.txt`);
 
-  // Combine system prompt and user prompt
   const fullPrompt = `${REVIEW_SYSTEM_PROMPT}
 
 ${prompt}
@@ -1028,28 +1071,12 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no code blocks, no explana
     );
     log("Sending prompt to Cursor Agent (this may take 30-60 seconds)...");
 
-    // Run the agent command with -p (print mode) for non-interactive use
-    // The prompt is piped via stdin as that's how the CLI expects it
-    const { stdout, stderr } = await execAsync(
-      `cat "${promptFile}" | "${agentPath}" -p --output-format text 2>&1`,
-      {
-        timeout: 300000, // 5 minute timeout
-        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-        cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
-      }
-    );
+    const response = await runAgentWithStdin(agentPath, promptFile, 300000);
 
-    log("Cursor CLI stdout length:", stdout?.length || 0);
-    if (stderr) {
-      log("Cursor CLI stderr:", stderr);
-    }
-
-    // Clean up temp file
     fs.unlinkSync(promptFile);
 
-    // Extract JSON from the response
-    const response = stdout || stderr || "";
-    log("Cursor CLI response preview:", response.substring(0, 500));
+    log("Cursor CLI response length:", response?.length || 0);
+    log("Cursor CLI response preview (truncated):", response.substring(0, 200) + (response.length > 200 ? "..." : ""));
 
     // Try to find JSON in the response (may be wrapped in markdown code blocks)
     // First try to extract from code blocks

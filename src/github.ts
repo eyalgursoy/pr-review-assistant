@@ -2,15 +2,19 @@
  * GitHub integration - PR info fetching and comment submission
  */
 
-import { exec } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import * as vscode from "vscode";
 import type { PRInfo, ChangedFile, ReviewComment } from "./types";
+import {
+  runCommand,
+  validateOwnerRepo,
+  validateBranchName,
+  validateGitPath,
+} from "./shell-utils";
 
-const execAsync = promisify(exec);
 const writeFileAsync = promisify(fs.writeFile);
 const unlinkAsync = promisify(fs.unlink);
 
@@ -31,7 +35,7 @@ export async function checkGhCli(): Promise<{
   const cwd = getWorkspacePath();
 
   try {
-    await execAsync("gh --version", { cwd });
+    await runCommand("gh", ["--version"], { cwd });
   } catch {
     return {
       available: false,
@@ -42,7 +46,7 @@ export async function checkGhCli(): Promise<{
   }
 
   try {
-    await execAsync("gh auth status", { cwd });
+    await runCommand("gh", ["auth", "status"], { cwd });
     return { available: true, authenticated: true };
   } catch {
     return {
@@ -61,12 +65,20 @@ export async function fetchPRInfo(
   repo: string,
   prNumber: number
 ): Promise<PRInfo> {
+  validateOwnerRepo(owner, "owner");
+  validateOwnerRepo(repo, "repo");
+
   const cwd = getWorkspacePath();
 
-  const { stdout } = await execAsync(
-    `gh pr view ${prNumber} --repo ${owner}/${repo} --json number,title,headRefName,baseRefName,url`,
-    { cwd }
-  );
+  const { stdout } = await runCommand("gh", [
+    "pr",
+    "view",
+    String(prNumber),
+    "--repo",
+    `${owner}/${repo}`,
+    "--json",
+    "number,title,headRefName,baseRefName,url",
+  ], { cwd });
 
   const data = JSON.parse(stdout);
 
@@ -89,12 +101,20 @@ export async function fetchChangedFiles(
   repo: string,
   prNumber: number
 ): Promise<ChangedFile[]> {
+  validateOwnerRepo(owner, "owner");
+  validateOwnerRepo(repo, "repo");
+
   const cwd = getWorkspacePath();
 
-  const { stdout } = await execAsync(
-    `gh pr view ${prNumber} --repo ${owner}/${repo} --json files`,
-    { cwd }
-  );
+  const { stdout } = await runCommand("gh", [
+    "pr",
+    "view",
+    String(prNumber),
+    "--repo",
+    `${owner}/${repo}`,
+    "--json",
+    "files",
+  ], { cwd });
 
   const data = JSON.parse(stdout);
 
@@ -115,12 +135,18 @@ export async function fetchPRDiff(
   repo: string,
   prNumber: number
 ): Promise<string> {
+  validateOwnerRepo(owner, "owner");
+  validateOwnerRepo(repo, "repo");
+
   const cwd = getWorkspacePath();
 
-  const { stdout } = await execAsync(
-    `gh pr diff ${prNumber} --repo ${owner}/${repo}`,
-    { cwd, maxBuffer: 50 * 1024 * 1024 }
-  );
+  const { stdout } = await runCommand("gh", [
+    "pr",
+    "diff",
+    String(prNumber),
+    "--repo",
+    `${owner}/${repo}`,
+  ], { cwd, maxBuffer: 50 * 1024 * 1024 });
 
   return stdout;
 }
@@ -132,16 +158,18 @@ export async function fetchBranchDiff(
   headBranch: string,
   baseBranch: string = "main"
 ): Promise<string> {
+  validateBranchName(headBranch);
+  validateBranchName(baseBranch);
+
   const cwd = getWorkspacePath();
 
-  // Fetch the branch
-  await execAsync(`git fetch origin ${headBranch}`, { cwd });
+  await runCommand("git", ["fetch", "origin", headBranch], { cwd });
 
-  // Get the diff
-  const { stdout } = await execAsync(
-    `git diff origin/${baseBranch}...origin/${headBranch} --no-color`,
-    { cwd, maxBuffer: 50 * 1024 * 1024 }
-  );
+  const { stdout } = await runCommand("git", [
+    "diff",
+    `origin/${baseBranch}...origin/${headBranch}`,
+    "--no-color",
+  ], { cwd, maxBuffer: 50 * 1024 * 1024 });
 
   return stdout;
 }
@@ -158,7 +186,7 @@ export async function getLocalBranchInfo(): Promise<{
     throw new Error("No workspace folder open");
   }
 
-  const { stdout: branch } = await execAsync("git branch --show-current", {
+  const { stdout: branch } = await runCommand("git", ["branch", "--show-current"], {
     cwd,
   });
   const currentBranch = branch.trim();
@@ -169,10 +197,10 @@ export async function getLocalBranchInfo(): Promise<{
   // Try main first, then master
   let baseBranch = "main";
   try {
-    await execAsync("git rev-parse main", { cwd });
+    await runCommand("git", ["rev-parse", "main"], { cwd });
   } catch {
     try {
-      await execAsync("git rev-parse master", { cwd });
+      await runCommand("git", ["rev-parse", "master"], { cwd });
       baseBranch = "master";
     } catch {
       throw new Error("Neither main nor master branch found");
@@ -187,15 +215,18 @@ export async function getLocalBranchInfo(): Promise<{
  * Uses git diff baseBranch...HEAD - no network required
  */
 export async function fetchLocalDiff(baseBranch: string = "main"): Promise<string> {
+  validateBranchName(baseBranch);
+
   const cwd = getWorkspacePath();
   if (!cwd) {
     throw new Error("No workspace folder open");
   }
 
-  const { stdout } = await execAsync(
-    `git diff ${baseBranch}...HEAD --no-color`,
-    { cwd, maxBuffer: 50 * 1024 * 1024 }
-  );
+  const { stdout } = await runCommand("git", [
+    "diff",
+    `${baseBranch}...HEAD`,
+    "--no-color",
+  ], { cwd, maxBuffer: 50 * 1024 * 1024 });
 
   return stdout;
 }
@@ -212,11 +243,14 @@ export async function getFileAtRevision(
   const cwd = getWorkspacePath();
   if (!cwd) throw new Error("No workspace folder open");
 
+  validateBranchName(revision);
+  const safePath = validateGitPath(filePath, cwd);
+
   try {
-    const { stdout } = await execAsync(
-      `git show "${revision}:${filePath}"`,
-      { cwd, maxBuffer: 5 * 1024 * 1024 }
-    );
+    const { stdout } = await runCommand("git", ["show", `${revision}:${safePath}`], {
+      cwd,
+      maxBuffer: 5 * 1024 * 1024,
+    });
     return stdout;
   } catch {
     return ""; // File may not exist at that revision (e.g. new file)
@@ -230,6 +264,9 @@ export async function approvePR(
   pr: PRInfo,
   body: string = "LGTM! Code reviewed with PR Review Assistant."
 ): Promise<{ success: boolean; message: string; url?: string }> {
+  validateOwnerRepo(pr.owner, "owner");
+  validateOwnerRepo(pr.repo, "repo");
+
   const cwd = getWorkspacePath();
   const tempFile = path.join(os.tmpdir(), `pr-review-approve-${Date.now()}.json`);
 
@@ -241,10 +278,14 @@ export async function approvePR(
   try {
     await writeFileAsync(tempFile, JSON.stringify(payload, null, 2), "utf-8");
 
-    const { stdout } = await execAsync(
-      `gh api repos/${pr.owner}/${pr.repo}/pulls/${pr.number}/reviews --method POST --input "${tempFile}"`,
-      { cwd }
-    );
+    const { stdout } = await runCommand("gh", [
+      "api",
+      `repos/${pr.owner}/${pr.repo}/pulls/${pr.number}/reviews`,
+      "--method",
+      "POST",
+      "--input",
+      tempFile,
+    ], { cwd });
 
     const response = JSON.parse(stdout);
 
@@ -276,6 +317,9 @@ export async function submitReviewComments(
   comments: ReviewComment[],
   summary?: string | null
 ): Promise<{ success: boolean; message: string; url?: string }> {
+  validateOwnerRepo(pr.owner, "owner");
+  validateOwnerRepo(pr.repo, "repo");
+
   const cwd = getWorkspacePath();
 
   if (comments.length === 0) {
@@ -307,10 +351,14 @@ export async function submitReviewComments(
     // Write payload to temp file
     await writeFileAsync(tempFile, JSON.stringify(payload, null, 2), "utf-8");
 
-    const { stdout } = await execAsync(
-      `gh api repos/${pr.owner}/${pr.repo}/pulls/${pr.number}/reviews --method POST --input "${tempFile}"`,
-      { cwd }
-    );
+    const { stdout } = await runCommand("gh", [
+      "api",
+      `repos/${pr.owner}/${pr.repo}/pulls/${pr.number}/reviews`,
+      "--method",
+      "POST",
+      "--input",
+      tempFile,
+    ], { cwd });
 
     const response = JSON.parse(stdout);
 

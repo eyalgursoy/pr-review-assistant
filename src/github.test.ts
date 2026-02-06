@@ -16,6 +16,12 @@ describe("parsePRUrl", () => {
     expect(parsePRUrl("https://gitlab.com/owner/repo/merge/123")).toBeNull();
     expect(parsePRUrl("not-a-url")).toBeNull();
   });
+
+  it("should return null for URL with invalid owner/repo (command injection attempt)", () => {
+    expect(parsePRUrl("https://github.com/evil;rm/pull/1")).toBeNull();
+    expect(parsePRUrl("https://github.com/owner/repo;x/pull/1")).toBeNull();
+    expect(parsePRUrl("https://github.com/owner/repo$(id)/pull/1")).toBeNull();
+  });
 });
 
 describe("parseDiffToChangedFiles", () => {

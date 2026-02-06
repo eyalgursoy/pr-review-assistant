@@ -3,11 +3,8 @@
  * Used to ensure PR review comments align with correct file versions
  */
 
-import { exec } from "child_process";
-import { promisify } from "util";
 import * as vscode from "vscode";
-
-const execAsync = promisify(exec);
+import { runCommand, validateBranchName, validateStashRef } from "./shell-utils";
 
 const STASH_PREFIX = "pr-review-assistant";
 
@@ -27,7 +24,7 @@ export async function getCurrentBranch(): Promise<string> {
   const cwd = getWorkspacePath();
   if (!cwd) throw new Error("No workspace folder open");
 
-  const { stdout } = await execAsync("git branch --show-current", { cwd });
+  const { stdout } = await runCommand("git", ["branch", "--show-current"], { cwd });
   return stdout.trim();
 }
 
@@ -38,7 +35,7 @@ export async function gitFetch(): Promise<void> {
   const cwd = getWorkspacePath();
   if (!cwd) throw new Error("No workspace folder open");
 
-  await execAsync("git fetch", { cwd });
+  await runCommand("git", ["fetch"], { cwd });
 }
 
 /**
@@ -48,7 +45,7 @@ export async function hasUncommittedChanges(): Promise<boolean> {
   const cwd = getWorkspacePath();
   if (!cwd) throw new Error("No workspace folder open");
 
-  const { stdout } = await execAsync("git status --porcelain", { cwd });
+  const { stdout } = await runCommand("git", ["status", "--porcelain"], { cwd });
   return stdout.trim().length > 0;
 }
 
@@ -60,13 +57,16 @@ export async function stashAndCheckout(
   currentBranch: string,
   targetBranch: string
 ): Promise<RestoreStackEntry> {
+  validateBranchName(currentBranch);
+  validateBranchName(targetBranch);
+
   const cwd = getWorkspacePath();
   if (!cwd) throw new Error("No workspace folder open");
 
   const stashMessage = `${STASH_PREFIX}-${Date.now()}-${currentBranch}`;
 
-  await execAsync(`git stash push -m "${stashMessage}"`, { cwd });
-  await execAsync(`git checkout ${targetBranch}`, { cwd });
+  await runCommand("git", ["stash", "push", "-m", stashMessage], { cwd });
+  await runCommand("git", ["checkout", targetBranch], { cwd });
 
   return { branch: currentBranch, stashMessage };
 }
@@ -78,10 +78,12 @@ export async function checkoutBranch(
   currentBranch: string,
   targetBranch: string
 ): Promise<RestoreStackEntry> {
+  validateBranchName(targetBranch);
+
   const cwd = getWorkspacePath();
   if (!cwd) throw new Error("No workspace folder open");
 
-  await execAsync(`git checkout ${targetBranch}`, { cwd });
+  await runCommand("git", ["checkout", targetBranch], { cwd });
 
   return { branch: currentBranch };
 }
@@ -96,10 +98,11 @@ export async function findStashByMessage(
   const cwd = getWorkspacePath();
   if (!cwd) throw new Error("No workspace folder open");
 
-  const { stdout } = await execAsync(
-    'git stash list --format="%gd %s"',
-    { cwd }
-  );
+  const { stdout } = await runCommand("git", [
+    "stash",
+    "list",
+    "--format=%gd %s",
+  ], { cwd });
 
   const lines = stdout.trim().split("\n");
   for (const line of lines) {
@@ -118,18 +121,22 @@ export async function findStashByMessage(
  * Pop a specific stash by ref
  */
 export async function popStash(ref: string): Promise<void> {
+  validateStashRef(ref);
+
   const cwd = getWorkspacePath();
   if (!cwd) throw new Error("No workspace folder open");
 
-  await execAsync(`git stash pop ${ref}`, { cwd });
+  await runCommand("git", ["stash", "pop", ref.trim()], { cwd });
 }
 
 /**
  * Checkout a branch
  */
 export async function checkout(branch: string): Promise<void> {
+  validateBranchName(branch);
+
   const cwd = getWorkspacePath();
   if (!cwd) throw new Error("No workspace folder open");
 
-  await execAsync(`git checkout ${branch}`, { cwd });
+  await runCommand("git", ["checkout", branch], { cwd });
 }
