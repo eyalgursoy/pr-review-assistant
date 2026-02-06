@@ -4,6 +4,8 @@ node_modules/
 # Build output
 dist/
 out/
+*.tsbuildinfo
+coverage/
 
 # VS Code extension package
 *.vsix
@@ -22,3 +24,15 @@ npm-debug.log*
 # Environment
 .env
 .env.local
+
+# Tool output
+results.sarif
+
+# Cursor
+.cursor/
+
+# Ralph
+ralph/
+
+# Docs
+docs/

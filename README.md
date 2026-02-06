@@ -13,15 +13,23 @@ AI-powered PR code review extension for VS Code / Cursor. Lives in the **Source 
 
 ## Installation
 
+### From Extensions (Cursor / VS Code)
+
+When published, search for **PR Review Assistant** in the Extensions panel (Cmd+Shift+X). Cursor uses the [OpenVSX](https://open-vsx.org) registry.
+
 ### From VSIX
+
+For manual installation, offline use, or pre-release versions:
 
 ```bash
 # Install in Cursor
-cursor --install-extension pr-review-assistant-0.8.0.vsix
+cursor --install-extension pr-review-assistant-X.X.X.vsix
 
 # Or in VS Code
-code --install-extension pr-review-assistant-0.8.0.vsix
+code --install-extension pr-review-assistant-X.X.X.vsix
 ```
+
+Replace `X.X.X` with the version you downloaded (e.g. `0.13.1`).
 
 ### Prerequisites
 
@@ -208,12 +216,26 @@ npm run watch
 npm run package
 ```
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full development and contribution guidelines.
+
 ## Requirements
 
 - VS Code 1.85+ or Cursor
 - GitHub CLI (`gh`) installed and authenticated
 - Node.js 18+ (for development)
 
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request.
+
+## Security
+
+To report a security vulnerability, please see [SECURITY.md](SECURITY.md). Do not open public issues for security vulnerabilities.
+
+## Code of Conduct
+
+This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to uphold this code.
+
 ## License
 
-MIT
+MIT License. See [LICENSE](LICENSE) for details.
