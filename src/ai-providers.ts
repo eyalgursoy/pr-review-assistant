@@ -985,6 +985,7 @@ async function ensureCursorCLIInstalled(): Promise<string | null> {
 
 /**
  * Run agent binary with prompt from file via stdin (no shell - prevents injection)
+ * Uses pipe + write to avoid ReadStream stdio issues in Electron/Node
  */
 async function runAgentWithStdin(
   agentPath: string,
@@ -995,10 +996,8 @@ async function runAgentWithStdin(
   const fs = await import("fs");
 
   return new Promise((resolve, reject) => {
-
-    const stdinStream = fs.createReadStream(promptFile);
     const child = spawn(agentPath, ["-p", "--output-format", "text"], {
-      stdio: [stdinStream, "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
       cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
     });
 
@@ -1025,6 +1024,15 @@ async function runAgentWithStdin(
 
     child.on("error", (err: Error) => {
       clearTimeout(timeout);
+      reject(err);
+    });
+
+    // Pipe file to stdin (avoids ReadStream in stdio which fails in Electron)
+    const readStream = fs.createReadStream(promptFile);
+    readStream.pipe(child.stdin!);
+    readStream.on("error", (err) => {
+      clearTimeout(timeout);
+      child.kill();
       reject(err);
     });
   });
