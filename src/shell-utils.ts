@@ -5,6 +5,9 @@
 
 import { execFile } from "child_process";
 import { promisify } from "util";
+import * as crypto from "crypto";
+import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 
 const execFileAsync = promisify(execFile);
@@ -131,4 +134,33 @@ export function validateExecutablePath(execPath: string): void {
       "Invalid executable path: contains disallowed shell metacharacters"
     );
   }
+}
+
+/**
+ * Create a secure temporary file path with cryptographically random name
+ * Prevents predictable file names that could be guessed by attackers
+ */
+export function createSecureTempFile(
+  prefix: string,
+  extension: string
+): string {
+  const randomPart = crypto.randomBytes(16).toString("hex");
+  const fileName = `${prefix}-${randomPart}${extension}`;
+  return path.join(os.tmpdir(), fileName);
+}
+
+/**
+ * Create a secure temp file with content and restrictive permissions (0600)
+ */
+export async function writeSecureTempFile(
+  prefix: string,
+  extension: string,
+  content: string
+): Promise<string> {
+  const filePath = createSecureTempFile(prefix, extension);
+  await fs.promises.writeFile(filePath, content, {
+    encoding: "utf-8",
+    mode: 0o600,
+  });
+  return filePath;
 }

@@ -47,7 +47,13 @@ import {
   parseDiffToChangedFiles,
   getFileAtRevision,
 } from "./github";
-import { runAIReview, getAIProvider, generateCodeSuggestion } from "./ai-providers";
+import {
+  runAIReview,
+  getAIProvider,
+  generateCodeSuggestion,
+} from "./ai-providers";
+import { initSecretStorage, setApiKey, deleteApiKey } from "./secrets";
+import { writeSecureTempFile } from "./shell-utils";
 import { buildReviewPrompt } from "./review-template";
 import {
   startProgress,
@@ -225,6 +231,9 @@ export function activate(context: vscode.ExtensionContext) {
   // Initialize logger first
   initLogger(context);
   log("PR Review Assistant activated");
+
+  // Initialize secure storage for API keys
+  initSecretStorage(context);
 
   // Check for pending restore (user closed IDE without clearing review)
   checkPendingRestoreOnActivation();
@@ -488,6 +497,20 @@ function registerCommands(context: vscode.ExtensionContext) {
       showLog();
     })
   );
+
+  // Set API Key (secure storage)
+  context.subscriptions.push(
+    vscode.commands.registerCommand("prReview.setApiKey", async () => {
+      await setApiKeyCommand();
+    })
+  );
+
+  // Clear API Key
+  context.subscriptions.push(
+    vscode.commands.registerCommand("prReview.clearApiKey", async () => {
+      await clearApiKeyCommand();
+    })
+  );
 }
 
 /**
@@ -748,8 +771,12 @@ async function runReview() {
     }
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    // Don't expose API keys
-    const safeMsg = msg.replace(/sk-[a-zA-Z0-9]+/g, "[API_KEY]");
+    // Don't expose API keys (all provider formats)
+    const safeMsg = msg
+      .replace(/sk-[a-zA-Z0-9-_]+/g, "[API_KEY]") // OpenAI
+      .replace(/AIza[a-zA-Z0-9-_]+/g, "[API_KEY]") // Gemini
+      .replace(/gsk_[a-zA-Z0-9]+/g, "[API_KEY]") // Groq
+      .replace(/sk-ant-[a-zA-Z0-9-_]+/g, "[API_KEY]"); // Anthropic
     errorProgress(safeMsg);
     vscode.window.showErrorMessage(`AI review failed: ${safeMsg}`);
   } finally {
@@ -1102,22 +1129,21 @@ async function viewDiffForComment(comment: ReviewComment) {
   try {
     const oldContent = await getFileAtRevision(comment.file, baseBranch);
 
-    const fs = await import("fs");
     const path = await import("path");
-    const os = await import("os");
-    const tempDir = os.tmpdir();
-    const tempFile = path.join(
-      tempDir,
-      `pr-review-old-${path.basename(comment.file)}-${Date.now()}`
+    const basename = path.basename(comment.file);
+    const tempFile = await writeSecureTempFile(
+      `pr-review-old-${basename}`,
+      "",
+      oldContent
     );
-    fs.writeFileSync(tempFile, oldContent, "utf-8");
     const oldUri = vscode.Uri.file(tempFile);
 
     await vscode.commands.executeCommand("vscode.diff", oldUri, newUri, `${comment.file} (${baseBranch} vs current)`);
 
     // Clean up temp file after a delay (diff editor may still be reading it)
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
+        const fs = await import("fs");
         fs.unlinkSync(tempFile);
       } catch {
         // Ignore
@@ -1168,6 +1194,51 @@ function showCommentDetails(comment: ReviewComment) {
   vscode.window.showInformationMessage(
     `[${comment.severity.toUpperCase()}] ${comment.issue}`,
     { modal: false, detail: comment.suggestion }
+  );
+}
+
+const API_KEY_PROVIDERS = [
+  { id: "anthropic", label: "Anthropic Claude" },
+  { id: "openai", label: "OpenAI GPT-4" },
+  { id: "gemini", label: "Google Gemini" },
+  { id: "groq", label: "Groq" },
+] as const;
+
+async function setApiKeyCommand(): Promise<void> {
+  const provider = await vscode.window.showQuickPick(
+    API_KEY_PROVIDERS.map((p) => ({ label: p.label, descriptor: p })),
+    { placeHolder: "Select AI provider" }
+  );
+  if (!provider) return;
+
+  const key = await vscode.window.showInputBox({
+    prompt: `Enter API key for ${provider.descriptor.label}`,
+    password: true,
+    placeHolder: "Paste your API key",
+  });
+  if (key === undefined) return;
+
+  if (!key.trim()) {
+    vscode.window.showWarningMessage("API key cannot be empty");
+    return;
+  }
+
+  await setApiKey(provider.descriptor.id, key.trim());
+  vscode.window.showInformationMessage(
+    `${provider.descriptor.label} API key stored securely`
+  );
+}
+
+async function clearApiKeyCommand(): Promise<void> {
+  const provider = await vscode.window.showQuickPick(
+    API_KEY_PROVIDERS.map((p) => ({ label: p.label, descriptor: p })),
+    { placeHolder: "Select AI provider" }
+  );
+  if (!provider) return;
+
+  await deleteApiKey(provider.descriptor.id);
+  vscode.window.showInformationMessage(
+    `${provider.descriptor.label} API key removed`
   );
 }
 

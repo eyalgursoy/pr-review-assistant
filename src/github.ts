@@ -4,8 +4,6 @@
 
 import { promisify } from "util";
 import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
 import * as vscode from "vscode";
 import type { PRInfo, ChangedFile, ReviewComment } from "./types";
 import {
@@ -13,9 +11,9 @@ import {
   validateOwnerRepo,
   validateBranchName,
   validateGitPath,
+  writeSecureTempFile,
 } from "./shell-utils";
 
-const writeFileAsync = promisify(fs.writeFile);
 const unlinkAsync = promisify(fs.unlink);
 
 function getWorkspacePath(): string | undefined {
@@ -268,15 +266,18 @@ export async function approvePR(
   validateOwnerRepo(pr.repo, "repo");
 
   const cwd = getWorkspacePath();
-  const tempFile = path.join(os.tmpdir(), `pr-review-approve-${Date.now()}.json`);
-
   const payload = {
     event: "APPROVE",
     body,
   };
 
+  const tempFile = await writeSecureTempFile(
+    "pr-review-approve",
+    ".json",
+    JSON.stringify(payload, null, 2)
+  );
+
   try {
-    await writeFileAsync(tempFile, JSON.stringify(payload, null, 2), "utf-8");
 
     const { stdout } = await runCommand("gh", [
       "api",
@@ -345,11 +346,13 @@ export async function submitReviewComments(
   };
 
   // Use a temp file to avoid shell escaping issues with complex JSON
-  const tempFile = path.join(os.tmpdir(), `pr-review-${Date.now()}.json`);
+  const tempFile = await writeSecureTempFile(
+    "pr-review",
+    ".json",
+    JSON.stringify(payload, null, 2)
+  );
 
   try {
-    // Write payload to temp file
-    await writeFileAsync(tempFile, JSON.stringify(payload, null, 2), "utf-8");
 
     const { stdout } = await runCommand("gh", [
       "api",

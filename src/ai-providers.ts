@@ -5,7 +5,11 @@
 
 import * as vscode from "vscode";
 import { log, logError, logSection } from "./logger";
-import { validateExecutablePath } from "./shell-utils";
+import {
+  validateExecutablePath,
+  writeSecureTempFile,
+} from "./shell-utils";
+import { getApiKey as getSecretApiKey, setApiKey as setSecretApiKey } from "./secrets";
 import {
   updateStage,
   updateStreamingProgress,
@@ -155,24 +159,42 @@ export function getAIProvider(): AIProvider {
   return config.get<AIProvider>("aiProvider", "none");
 }
 
+const SETTINGS_KEYS: Record<string, string> = {
+  anthropic: "anthropicApiKey",
+  openai: "openaiApiKey",
+  gemini: "geminiApiKey",
+  groq: "groqApiKey",
+};
+
 /**
  * Get API key for a provider
+ * Checks SecretStorage first, then falls back to settings for backward compatibility.
+ * Migrates keys from settings to SecretStorage when found.
  */
-export function getAPIKey(provider: AIProvider): string | undefined {
-  const config = vscode.workspace.getConfiguration("prReview");
-
-  switch (provider) {
-    case "anthropic":
-      return config.get<string>("anthropicApiKey");
-    case "openai":
-      return config.get<string>("openaiApiKey");
-    case "gemini":
-      return config.get<string>("geminiApiKey");
-    case "groq":
-      return config.get<string>("groqApiKey");
-    default:
-      return undefined;
+export async function getAPIKey(provider: AIProvider): Promise<string | undefined> {
+  if (
+    provider !== "anthropic" &&
+    provider !== "openai" &&
+    provider !== "gemini" &&
+    provider !== "groq"
+  ) {
+    return undefined;
   }
+
+  // First check SecretStorage (secure)
+  let apiKey = await getSecretApiKey(provider);
+  if (apiKey) return apiKey;
+
+  // Fall back to settings for backward compatibility
+  const config = vscode.workspace.getConfiguration("prReview");
+  const settingsKey = SETTINGS_KEYS[provider];
+  apiKey = config.get<string>(settingsKey);
+  if (apiKey) {
+    // Migrate to SecretStorage for future use
+    await setSecretApiKey(provider, apiKey);
+    return apiKey;
+  }
+  return undefined;
 }
 
 /**
@@ -206,7 +228,7 @@ export async function runAIReview(
     );
   }
 
-  const apiKey = getAPIKey(provider);
+  const apiKey = await getAPIKey(provider);
   if (!apiKey && provider !== "vscode-lm" && provider !== "cursor-cli") {
     errorProgress(`API key not configured for ${provider}`);
     throw new Error(
@@ -1056,19 +1078,13 @@ async function callCursorCLI(prompt: string): Promise<string> {
 
   validateExecutablePath(agentPath);
 
-  const fs = await import("fs");
-  const path = await import("path");
-  const os = await import("os");
-  const tempDir = os.tmpdir();
-  const promptFile = path.join(tempDir, `pr-review-prompt-${Date.now()}.txt`);
-
   const fullPrompt = `${REVIEW_SYSTEM_PROMPT}
 
 ${prompt}
 
 IMPORTANT: Respond with ONLY valid JSON. No markdown, no code blocks, no explanations. Just the JSON object.`;
 
-  fs.writeFileSync(promptFile, fullPrompt, "utf-8");
+  const promptFile = await writeSecureTempFile("pr-review-prompt", ".txt", fullPrompt);
   log(`Wrote prompt to temp file: ${promptFile}`);
 
   try {
@@ -1081,6 +1097,7 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no code blocks, no explana
 
     const response = await runAgentWithStdin(agentPath, promptFile, 300000);
 
+    const fs = await import("fs");
     fs.unlinkSync(promptFile);
 
     log("Cursor CLI response length:", response?.length || 0);
@@ -1123,8 +1140,8 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no code blocks, no explana
   } catch (error) {
     // Clean up temp file on error
     try {
-      const fs = await import("fs");
-      fs.unlinkSync(promptFile);
+      const { unlinkSync } = await import("fs");
+      unlinkSync(promptFile);
     } catch {
       // Ignore cleanup errors
     }
@@ -1187,7 +1204,7 @@ export async function generateCodeSuggestion(
   suggestion?: string
 ): Promise<string> {
   const provider = getAIProvider();
-  const apiKey = getAPIKey(provider);
+  const apiKey = await getAPIKey(provider);
 
   if (provider === "none") {
     throw new Error("No AI provider configured");

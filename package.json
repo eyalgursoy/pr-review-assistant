@@ -104,6 +104,16 @@
         "icon": "$(output)"
       },
       {
+        "command": "prReview.setApiKey",
+        "title": "Set API Key (Secure)",
+        "icon": "$(key)"
+      },
+      {
+        "command": "prReview.clearApiKey",
+        "title": "Clear API Key",
+        "icon": "$(trash)"
+      },
+      {
         "command": "prReview.comment.approve",
         "title": "Approve",
         "icon": "$(check)"
@@ -316,22 +326,26 @@
         "prReview.anthropicApiKey": {
           "type": "string",
           "default": "",
-          "description": "Anthropic API key"
+          "description": "Anthropic API key (deprecated: use 'Set API Key' command for secure storage)",
+          "deprecationMessage": "Use the 'PR Review: Set API Key (Secure)' command instead. Keys in settings are stored in plain text."
         },
         "prReview.openaiApiKey": {
           "type": "string",
           "default": "",
-          "description": "OpenAI API key"
+          "description": "OpenAI API key (deprecated: use 'Set API Key' command for secure storage)",
+          "deprecationMessage": "Use the 'PR Review: Set API Key (Secure)' command instead. Keys in settings are stored in plain text."
         },
         "prReview.geminiApiKey": {
           "type": "string",
           "default": "",
-          "description": "Google Gemini API key"
+          "description": "Google Gemini API key (deprecated: use 'Set API Key' command for secure storage)",
+          "deprecationMessage": "Use the 'PR Review: Set API Key (Secure)' command instead. Keys in settings are stored in plain text."
         },
         "prReview.groqApiKey": {
           "type": "string",
           "default": "",
-          "description": "Groq API key"
+          "description": "Groq API key (deprecated: use 'Set API Key' command for secure storage)",
+          "deprecationMessage": "Use the 'PR Review: Set API Key (Secure)' command instead. Keys in settings are stored in plain text."
         },
         "prReview.githubAuth": {
           "type": "string",
