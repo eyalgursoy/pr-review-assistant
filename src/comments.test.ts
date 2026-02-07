@@ -32,7 +32,8 @@ describe("sanitizeMarkdownForDisplay", () => {
 
   it("should return empty string for empty input", () => {
     expect(sanitizeMarkdownForDisplay("")).toBe("");
-    expect(sanitizeMarkdownForDisplay(null as unknown as string)).toBe("");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(sanitizeMarkdownForDisplay(null as any)).toBe("");
   });
 
   it("should preserve safe content", () => {
