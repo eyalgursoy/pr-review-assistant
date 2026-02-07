@@ -16,6 +16,7 @@ Thumbs.db
 
 # IDE
 .idea/
+# Note: .vscode/ is intentionally NOT ignored - it contains useful debug configs for VS Code extension development
 
 # Logs
 *.log
@@ -24,15 +25,25 @@ npm-debug.log*
 # Environment
 .env
 .env.local
+.env.*
 
 # Tool output
 results.sarif
 
-# Cursor
+# Cursor AI
 .cursor/
 
 # Ralph
 ralph/
 
-# Docs
+# Docs (generated)
 docs/
+
+# Test artifacts
+test-results/
+.nyc_output/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
