@@ -18,19 +18,19 @@ AI-powered PR code review extension for VS Code / Cursor. Lives in the **Source 
 
 When published, search for **PR Review Assistant** in the Extensions panel (Cmd+Shift+X). Cursor uses the [OpenVSX](https://open-vsx.org) registry.
 
-### From VSIX
+### From GitHub Releases
 
-For manual installation, offline use, or pre-release versions:
+Download the latest `.vsix` from [GitHub Releases](https://github.com/eyalgursoy/pr-review-assistant/releases), then install:
 
 ```bash
 # Install in Cursor
-cursor --install-extension pr-review-assistant-X.X.X.vsix
+cursor --install-extension pr-review-assistant-0.13.2.vsix
 
 # Or in VS Code
-code --install-extension pr-review-assistant-X.X.X.vsix
+code --install-extension pr-review-assistant-0.13.2.vsix
 ```
 
-Replace `X.X.X` with the version you downloaded (e.g. `0.13.1`).
+Replace `0.13.2` with the version you downloaded if different.
 
 ### Prerequisites
 
@@ -217,7 +217,7 @@ For each AI-generated comment:
 
 ```bash
 # Clone and install
-git clone https://github.com/pr-review/pr-review-assistant
+git clone https://github.com/eyalgursoy/pr-review-assistant
 cd pr-review-assistant
 npm install
 
