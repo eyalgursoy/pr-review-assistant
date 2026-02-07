@@ -7,6 +7,11 @@ import {
   createSecureTempFile,
   writeSecureTempFile,
   validateBranchName,
+  validateOwnerRepo,
+  validateStashRef,
+  validateGitPath,
+  validateExecutablePath,
+  runCommand,
 } from "./shell-utils";
 import * as fs from "fs";
 import * as path from "path";
@@ -92,5 +97,140 @@ describe("validateBranchName", () => {
     expect(() => validateBranchName("branch;rm -rf /")).toThrow(
       "disallowed characters"
     );
+  });
+});
+
+describe("validateOwnerRepo", () => {
+  it("should accept valid GitHub owner/repo names", () => {
+    expect(() => validateOwnerRepo("octocat", "owner")).not.toThrow();
+    expect(() => validateOwnerRepo("my-org", "owner")).not.toThrow();
+    expect(() => validateOwnerRepo("user_name", "owner")).not.toThrow();
+    expect(() => validateOwnerRepo("user.name", "owner")).not.toThrow();
+    expect(() => validateOwnerRepo("User123", "owner")).not.toThrow();
+  });
+
+  it("should reject empty values", () => {
+    expect(() => validateOwnerRepo("", "owner")).toThrow("empty or not a string");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(() => validateOwnerRepo(null as any, "owner")).toThrow("empty or not a string");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(() => validateOwnerRepo(undefined as any, "owner")).toThrow("empty or not a string");
+  });
+
+  it("should reject names with invalid characters", () => {
+    expect(() => validateOwnerRepo("user/name", "owner")).toThrow("must contain only");
+    expect(() => validateOwnerRepo("user;name", "owner")).toThrow("must contain only");
+    expect(() => validateOwnerRepo("user$name", "owner")).toThrow("must contain only");
+    expect(() => validateOwnerRepo("user name", "owner")).toThrow("must contain only");
+  });
+
+  it("should include field name in error message", () => {
+    expect(() => validateOwnerRepo("", "repository")).toThrow("Invalid repository");
+    expect(() => validateOwnerRepo("bad/name", "owner")).toThrow("Invalid owner");
+  });
+});
+
+describe("validateStashRef", () => {
+  it("should accept valid stash refs", () => {
+    expect(() => validateStashRef("stash@{0}")).not.toThrow();
+    expect(() => validateStashRef("stash@{1}")).not.toThrow();
+    expect(() => validateStashRef("stash@{99}")).not.toThrow();
+    expect(() => validateStashRef(" stash@{0} ")).not.toThrow(); // with whitespace
+  });
+
+  it("should reject invalid stash refs", () => {
+    expect(() => validateStashRef("stash@{abc}")).toThrow("must match stash@{n}");
+    expect(() => validateStashRef("stash@{}")).toThrow("must match stash@{n}");
+    expect(() => validateStashRef("stash{0}")).toThrow("must match stash@{n}");
+    expect(() => validateStashRef("refs/stash")).toThrow("must match stash@{n}");
+    expect(() => validateStashRef("stash@{-1}")).toThrow("must match stash@{n}");
+  });
+
+  it("should reject empty values", () => {
+    expect(() => validateStashRef("")).toThrow("empty or not a string");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(() => validateStashRef(null as any)).toThrow("empty or not a string");
+  });
+});
+
+describe("validateGitPath", () => {
+  const testCwd = "/home/user/project";
+
+  it("should accept valid relative paths", () => {
+    expect(validateGitPath("src/index.ts", testCwd)).toBe("src/index.ts");
+    expect(validateGitPath("README.md", testCwd)).toBe("README.md");
+    expect(validateGitPath("src/utils/helper.ts", testCwd)).toBe("src/utils/helper.ts");
+  });
+
+  it("should reject path traversal attempts", () => {
+    expect(() => validateGitPath("../etc/passwd", testCwd)).toThrow("path traversal not allowed");
+    expect(() => validateGitPath("src/../../../etc/passwd", testCwd)).toThrow("path traversal not allowed");
+    expect(() => validateGitPath("..", testCwd)).toThrow("path traversal not allowed");
+  });
+
+  it("should reject absolute paths", () => {
+    expect(() => validateGitPath("/etc/passwd", testCwd)).toThrow("absolute paths not allowed");
+    expect(() => validateGitPath("/home/user/file.txt", testCwd)).toThrow("absolute paths not allowed");
+  });
+
+  it("should reject paths with disallowed characters", () => {
+    expect(() => validateGitPath("file;name.ts", testCwd)).toThrow("disallowed characters");
+    expect(() => validateGitPath("file$name.ts", testCwd)).toThrow("disallowed characters");
+    expect(() => validateGitPath("file name.ts", testCwd)).toThrow("disallowed characters");
+  });
+
+  it("should reject empty values", () => {
+    expect(() => validateGitPath("", testCwd)).toThrow("empty or not a string");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(() => validateGitPath(null as any, testCwd)).toThrow("empty or not a string");
+  });
+});
+
+describe("validateExecutablePath", () => {
+  it("should accept valid executable paths", () => {
+    expect(() => validateExecutablePath("/usr/bin/git")).not.toThrow();
+    expect(() => validateExecutablePath("git")).not.toThrow();
+    expect(() => validateExecutablePath("/usr/local/bin/gh")).not.toThrow();
+    expect(() => validateExecutablePath("./node_modules/.bin/tsc")).not.toThrow();
+  });
+
+  it("should reject paths with shell metacharacters", () => {
+    expect(() => validateExecutablePath("git;rm -rf /")).toThrow("shell metacharacters");
+    expect(() => validateExecutablePath("git && echo pwned")).toThrow("shell metacharacters");
+    expect(() => validateExecutablePath("git | cat /etc/passwd")).toThrow("shell metacharacters");
+    expect(() => validateExecutablePath("$(whoami)")).toThrow("shell metacharacters");
+    expect(() => validateExecutablePath("`whoami`")).toThrow("shell metacharacters");
+    expect(() => validateExecutablePath("git\nrm -rf /")).toThrow("shell metacharacters");
+  });
+
+  it("should reject empty values", () => {
+    expect(() => validateExecutablePath("")).toThrow("empty or not a string");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(() => validateExecutablePath(null as any)).toThrow("empty or not a string");
+  });
+});
+
+describe("runCommand", () => {
+  it("should execute simple commands", async () => {
+    const result = await runCommand("echo", ["hello"]);
+    expect(result.stdout.trim()).toBe("hello");
+  });
+
+  it("should pass arguments correctly", async () => {
+    const result = await runCommand("echo", ["-n", "test"]);
+    expect(result.stdout).toBe("test");
+  });
+
+  it("should respect cwd option", async () => {
+    const result = await runCommand("pwd", [], { cwd: os.tmpdir() });
+    expect(result.stdout.trim()).toBe(fs.realpathSync(os.tmpdir()));
+  });
+
+  it("should throw on non-existent command", async () => {
+    await expect(runCommand("nonexistent-command-xyz", [])).rejects.toThrow();
+  });
+
+  it("should throw on command failure", async () => {
+    await expect(runCommand("false", [])).rejects.toThrow();
   });
 });

@@ -2,7 +2,7 @@
  * Tests for SecretStorage-based API key management
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   initSecretStorage,
   getApiKey,
@@ -76,5 +76,48 @@ describe("secrets", () => {
       expect(await getApiKey("vscode-lm")).toBeUndefined();
       expect(await getApiKey("cursor-cli")).toBeUndefined();
     });
+  });
+
+  describe("setApiKey for unknown provider", () => {
+    it("should silently ignore unknown providers", async () => {
+      // Should not throw
+      await expect(setApiKey("invalid-provider", "key")).resolves.not.toThrow();
+      await expect(setApiKey("cursor-cli", "key")).resolves.not.toThrow();
+    });
+  });
+
+  describe("deleteApiKey for unknown provider", () => {
+    it("should silently ignore unknown providers", async () => {
+      await expect(deleteApiKey("invalid-provider")).resolves.not.toThrow();
+      await expect(deleteApiKey("vscode-lm")).resolves.not.toThrow();
+    });
+  });
+});
+
+describe("secrets without initialization", () => {
+  // Test behavior when secretStorage is not initialized
+  // We need a fresh module state, so we use dynamic import
+
+  it("should return undefined when not initialized", async () => {
+    // Reset module to get fresh state
+    vi.resetModules();
+    const { getApiKey: freshGetApiKey } = await import("./secrets");
+    
+    // Without calling initSecretStorage, should return undefined
+    expect(await freshGetApiKey("anthropic")).toBeUndefined();
+  });
+
+  it("should not throw when setting key without initialization", async () => {
+    vi.resetModules();
+    const { setApiKey: freshSetApiKey } = await import("./secrets");
+    
+    await expect(freshSetApiKey("anthropic", "key")).resolves.not.toThrow();
+  });
+
+  it("should not throw when deleting key without initialization", async () => {
+    vi.resetModules();
+    const { deleteApiKey: freshDeleteApiKey } = await import("./secrets");
+    
+    await expect(freshDeleteApiKey("anthropic")).resolves.not.toThrow();
   });
 });
