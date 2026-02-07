@@ -7,7 +7,7 @@
   "icon": "resources/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pr-review/pr-review-assistant"
+    "url": "https://github.com/eyalgursoy/pr-review-assistant"
   },
   "engines": {
     "vscode": "^1.85.0"
