@@ -59,7 +59,6 @@ import {
   startProgress,
   updateStage,
   resetProgress,
-  completeProgress,
   errorProgress,
 } from "./streaming-progress";
 import type { ReviewComment } from "./types";

@@ -48,7 +48,7 @@ export function buildReviewPrompt(
   headBranch: string,
   baseBranch: string,
   prTitle: string,
-  diff: string
+  _diff: string
 ): string {
   return `${REVIEW_TEMPLATE}
 

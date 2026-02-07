@@ -8,9 +8,6 @@ import {
   getState,
   onStateChange,
   getAllComments,
-  getApprovedComments,
-  getPendingComments,
-  allCommentsReviewed,
   allCommentsRejected,
 } from "./state";
 import {
@@ -357,18 +354,6 @@ export class PRReviewTreeProvider
 
   private getProgressItems(progress: StreamingProgress): TreeItemData[] {
     const items: TreeItemData[] = [];
-
-    // Main progress item with stage icon
-    const stageIcons: Record<string, string> = {
-      "fetching-pr": "cloud-download",
-      "loading-diff": "file-code",
-      "preparing-prompt": "edit",
-      "ai-analyzing": "hubot",
-      "ai-streaming": "hubot",
-      "parsing-response": "json",
-      complete: "check",
-      error: "error",
-    };
 
     const stageLabels: Record<string, string> = {
       "fetching-pr": "Fetching PR Info",

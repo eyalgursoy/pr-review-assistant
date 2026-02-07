@@ -116,7 +116,7 @@ export async function fetchChangedFiles(
 
   const data = JSON.parse(stdout);
 
-  return data.files.map((f: any) => ({
+  return data.files.map((f: { path: string; status?: string; additions?: number; deletions?: number }) => ({
     path: f.path,
     status: f.status?.toLowerCase() || "modified",
     additions: f.additions || 0,

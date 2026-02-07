@@ -27,7 +27,7 @@ describe("secrets", () => {
   beforeEach(() => {
     initSecretStorage({
       secrets: createMockSecretStorage(),
-    } as any);
+    } as unknown as { secrets: { get: (key: string) => Thenable<string | undefined>; store: (key: string, value: string) => Thenable<void>; delete: (key: string) => Thenable<void> } });
   });
 
   describe("setApiKey and getApiKey", () => {

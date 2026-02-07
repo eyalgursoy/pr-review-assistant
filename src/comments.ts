@@ -6,7 +6,6 @@
 
 import * as vscode from "vscode";
 import {
-  getState,
   onStateChange,
   updateCommentStatus,
   updateCommentText,
@@ -237,7 +236,6 @@ function refreshCommentThreads(): void {
     return;
   }
 
-  const state = getState();
   const allComments = getAllComments();
 
   log(`Refreshing comment threads: ${allComments.length} comments`);

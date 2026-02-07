@@ -7,7 +7,6 @@
 
 import * as vscode from "vscode";
 import { getCommentsForFile, onStateChange } from "./state";
-import type { ReviewComment } from "./types";
 
 export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
   private _onDidChangeCodeLenses = new vscode.EventEmitter<void>();

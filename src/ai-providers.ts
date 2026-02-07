@@ -660,7 +660,7 @@ async function callAnthropicStreaming(
   log("Calling Anthropic Claude API with streaming...");
   const module = await import("@anthropic-ai/sdk");
   const Anthropic = module.default || module;
-  const client = new (Anthropic as any)({ apiKey });
+  const client = new (Anthropic as { new(opts: { apiKey: string }): unknown })({ apiKey });
 
   let fullResponse = "";
   let tokenCount = 0;
@@ -694,7 +694,7 @@ async function callOpenAIStreaming(
   log("Calling OpenAI API with streaming...");
   const module = await import("openai");
   const OpenAI = module.default || module;
-  const client = new (OpenAI as any)({ apiKey });
+  const client = new (OpenAI as { new(opts: { apiKey: string }): unknown })({ apiKey });
 
   let fullResponse = "";
   let tokenCount = 0;
@@ -773,7 +773,7 @@ async function callGroqStreaming(
   log("Calling Groq API with streaming...");
   const module = await import("groq-sdk");
   const Groq = module.default || module;
-  const client = new (Groq as any)({ apiKey });
+  const client = new (Groq as { new(opts: { apiKey: string }): unknown })({ apiKey });
 
   let fullResponse = "";
   let tokenCount = 0;

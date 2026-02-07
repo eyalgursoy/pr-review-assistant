@@ -32,7 +32,7 @@ describe("sanitizeMarkdownForDisplay", () => {
 
   it("should return empty string for empty input", () => {
     expect(sanitizeMarkdownForDisplay("")).toBe("");
-    expect(sanitizeMarkdownForDisplay(null as any)).toBe("");
+    expect(sanitizeMarkdownForDisplay(null as unknown as string)).toBe("");
   });
 
   it("should preserve safe content", () => {
