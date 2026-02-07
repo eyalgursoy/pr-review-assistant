@@ -4,7 +4,8 @@
  */
 
 import * as vscode from "vscode";
-import { log, logError, logSection } from "./logger";
+import { log, logError, logSection, isVerboseLogging } from "./logger";
+import { AIReviewOutputSchema } from "./ai-review-schema";
 import {
   validateExecutablePath,
   writeSecureTempFile,
@@ -217,7 +218,9 @@ export async function runAIReview(
   logSection("AI REVIEW REQUEST");
   log(`Provider: ${provider}`);
   log(`Diff length: ${diff.length} characters`);
-  log(`Diff preview (first 100 chars):`, diff.substring(0, 100) + (diff.length > 100 ? "..." : ""));
+  if (isVerboseLogging()) {
+    log(`Diff preview (first 100 chars):`, diff.substring(0, 100) + (diff.length > 100 ? "..." : ""));
+  }
 
   updateStage("preparing-prompt", "Preparing AI prompt...");
 
@@ -316,7 +319,9 @@ IMPORTANT:
 
   logSection("AI RESPONSE");
   log(`Response length: ${response.length} characters`);
-  log(`Response preview (truncated):`, response.substring(0, 200) + (response.length > 200 ? "..." : ""));
+  if (isVerboseLogging()) {
+    log(`Response preview (truncated):`, response.substring(0, 200) + (response.length > 200 ? "..." : ""));
+  }
 
   const result = parseAIResponse(response);
 
@@ -403,7 +408,9 @@ function parseAIResponse(response: string): AIReviewResult {
 
   jsonStr = jsonStr.slice(startIdx, endIdx + 1);
   log(`Extracted JSON length: ${jsonStr.length}`);
-  log(`Extracted JSON preview (truncated):`, jsonStr.substring(0, 200) + (jsonStr.length > 200 ? "..." : ""));
+  if (isVerboseLogging()) {
+    log(`Extracted JSON preview (truncated):`, jsonStr.substring(0, 200) + (jsonStr.length > 200 ? "..." : ""));
+  }
 
   // Step 3: Clean up common JSON issues
   jsonStr = cleanJsonString(jsonStr);
@@ -411,89 +418,91 @@ function parseAIResponse(response: string): AIReviewResult {
   // Step 4: Parse the JSON
   try {
     log("Attempting to parse JSON...");
-    const data: AIReviewOutput = JSON.parse(jsonStr);
+    const data: unknown = JSON.parse(jsonStr);
     log("JSON parsed successfully");
-    log(`Parsed object keys:`, Object.keys(data));
+
+    // Step 5: Validate with Zod schema
+    const parsed = AIReviewOutputSchema.safeParse(data);
+    if (parsed.success) {
+      const { summary: rawSummary, findings } = parsed.data;
+      const summary = rawSummary
+        ? sanitizeString(rawSummary).substring(0, 256)
+        : defaultResult.summary;
+      if (isVerboseLogging()) {
+        log(`Parsed object keys:`, Object.keys(parsed.data));
+        log(`Extracted summary: ${summary}`);
+        log(`Number of findings in response: ${findings.length}`);
+      }
+      const comments: ReviewComment[] = findings.map((f, idx) => {
+        let filePath = f.file.trim();
+        if (filePath.startsWith("a/") || filePath.startsWith("b/")) {
+          filePath = filePath.substring(2);
+        }
+        return {
+          id: `comment-${Date.now()}-${idx}`,
+          file: filePath,
+          line: Math.floor(f.line),
+          endLine: f.endLine ? Math.floor(f.endLine) : undefined,
+          side: normalizeSide(f.side),
+          severity: normalizeSeverity(f.severity),
+          issue: sanitizeString(f.issue),
+          suggestion: f.suggestion ? sanitizeString(f.suggestion) : undefined,
+          codeSnippet: f.codeSnippet ? sanitizeString(f.codeSnippet) : undefined,
+          status: "pending" as const,
+        };
+      });
+      log(`Successfully parsed ${comments.length} valid comments (schema)`);
+      return { summary, comments };
+    }
+
+    // Schema validation failed - fall back to defensive parsing
+    if (isVerboseLogging()) {
+      log("Schema validation failed, using defensive parsing:", parsed.error.message);
+    }
+    const dataObj = data as AIReviewOutput;
 
     // Extract summary (truncate to 256 chars max)
     let summary = defaultResult.summary;
-    if (data.summary && typeof data.summary === "string") {
-      summary = sanitizeString(data.summary).substring(0, 256);
-      log(`Extracted summary: ${summary}`);
-    } else {
-      log("No summary in response, using default");
+    if (dataObj.summary && typeof dataObj.summary === "string") {
+      summary = sanitizeString(dataObj.summary).substring(0, 256);
+      if (isVerboseLogging()) log(`Extracted summary: ${summary}`);
     }
 
-    // Validate structure
-    if (!data || typeof data !== "object") {
+    if (!dataObj || typeof dataObj !== "object") {
       log("Parsed data is not an object");
       return { summary, comments: [] };
     }
-
-    // Handle case where findings is missing or null
-    if (!data.findings) {
+    if (!dataObj.findings) {
       log("No 'findings' property in parsed data");
       return { summary, comments: [] };
     }
-
-    if (!Array.isArray(data.findings)) {
-      log(`'findings' is not an array, type: ${typeof data.findings}`);
+    if (!Array.isArray(dataObj.findings)) {
+      log(`'findings' is not an array, type: ${typeof dataObj.findings}`);
+      return { summary, comments: [] };
+    }
+    if (isVerboseLogging()) log(`Number of findings in response: ${dataObj.findings.length}`);
+    if (dataObj.findings.length === 0) {
       return { summary, comments: [] };
     }
 
-    log(`Number of findings in response: ${data.findings.length}`);
-
-    // Handle empty findings
-    if (data.findings.length === 0) {
-      log("AI returned empty findings array - no issues found");
-      return { summary, comments: [] };
-    }
-
-    // Map and validate each finding
     const comments: ReviewComment[] = [];
+    for (let idx = 0; idx < dataObj.findings.length; idx++) {
+      const f = dataObj.findings[idx];
+      if (isVerboseLogging()) log(`Processing finding ${idx + 1}/${dataObj.findings.length}:`, f);
+      if (!f || typeof f !== "object") continue;
+      if (!f.file || typeof f.file !== "string") continue;
+      const parsedLine = typeof f.line === "number" ? f.line : parseInt(String(f.line), 10);
+      if (isNaN(parsedLine) || parsedLine < 1) continue;
+      if (!f.issue || typeof f.issue !== "string") continue;
 
-    for (let idx = 0; idx < data.findings.length; idx++) {
-      const f = data.findings[idx];
-      log(`Processing finding ${idx + 1}/${data.findings.length}:`, f);
-
-      // Skip invalid findings
-      if (!f || typeof f !== "object") {
-        log(`  Skipping: not an object`);
-        continue;
-      }
-
-      // Validate required fields
-      if (!f.file || typeof f.file !== "string") {
-        log(`  Skipping: missing or invalid 'file' field`);
-        continue;
-      }
-
-      if (typeof f.line !== "number" || f.line < 1) {
-        // Try to parse line as number if it's a string
-        const parsedLine = parseInt(String(f.line), 10);
-        if (isNaN(parsedLine) || parsedLine < 1) {
-          log(`  Skipping: invalid 'line' field: ${f.line}`);
-          continue;
-        }
-        f.line = parsedLine;
-      }
-
-      if (!f.issue || typeof f.issue !== "string") {
-        log(`  Skipping: missing or invalid 'issue' field`);
-        continue;
-      }
-
-      // Clean the file path (remove "a/" or "b/" prefix if present)
       let filePath = f.file.trim();
       if (filePath.startsWith("a/") || filePath.startsWith("b/")) {
         filePath = filePath.substring(2);
-        log(`  Cleaned file path: ${filePath}`);
       }
-
-      const comment: ReviewComment = {
+      comments.push({
         id: `comment-${Date.now()}-${idx}`,
         file: filePath,
-        line: Math.floor(f.line),
+        line: Math.floor(parsedLine),
         endLine: f.endLine ? Math.floor(f.endLine) : undefined,
         side: normalizeSide(f.side),
         severity: normalizeSeverity(f.severity),
@@ -501,28 +510,23 @@ function parseAIResponse(response: string): AIReviewResult {
         suggestion: f.suggestion ? sanitizeString(f.suggestion) : undefined,
         codeSnippet: f.codeSnippet ? sanitizeString(f.codeSnippet) : undefined,
         status: "pending",
-      };
-
-      log(`  Created comment:`, {
-        file: comment.file,
-        line: comment.line,
-        side: comment.side,
-        severity: comment.severity,
       });
-      comments.push(comment);
     }
-
     log(`Successfully parsed ${comments.length} valid comments`);
     return { summary, comments };
   } catch (e) {
     logError("JSON parse error", e);
-    log("Failed JSON string:", jsonStr.substring(0, 2000));
+    if (isVerboseLogging()) {
+      log("Failed JSON string:", jsonStr.substring(0, 2000));
+    }
 
     // Try one more time with aggressive cleaning
     try {
       log("Attempting aggressive JSON cleaning...");
       const aggressivelyCleaned = aggressiveJsonClean(jsonStr);
-      log("Aggressively cleaned JSON:", aggressivelyCleaned.substring(0, 500));
+      if (isVerboseLogging()) {
+        log("Aggressively cleaned JSON:", aggressivelyCleaned.substring(0, 500));
+      }
 
       const data: AIReviewOutput = JSON.parse(aggressivelyCleaned);
       const fallbackSummary = data.summary
@@ -1101,7 +1105,9 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no code blocks, no explana
     fs.unlinkSync(promptFile);
 
     log("Cursor CLI response length:", response?.length || 0);
-    log("Cursor CLI response preview (truncated):", response.substring(0, 200) + (response.length > 200 ? "..." : ""));
+    if (isVerboseLogging()) {
+      log("Cursor CLI response preview (truncated):", response.substring(0, 200) + (response.length > 200 ? "..." : ""));
+    }
 
     // Try to find JSON in the response (may be wrapped in markdown code blocks)
     // First try to extract from code blocks

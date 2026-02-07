@@ -1,11 +1,12 @@
 /**
- * Tests for shell-utils secure temp file functions
+ * Tests for shell-utils secure temp file and validation functions
  */
 
 import { describe, it, expect } from "vitest";
 import {
   createSecureTempFile,
   writeSecureTempFile,
+  validateBranchName,
 } from "./shell-utils";
 import * as fs from "fs";
 import * as path from "path";
@@ -65,5 +66,31 @@ describe("writeSecureTempFile", () => {
     for (const p of paths) {
       fs.unlinkSync(p);
     }
+  });
+});
+
+describe("validateBranchName", () => {
+  it("should reject path traversal patterns", () => {
+    expect(() => validateBranchName("refs/heads/../../etc/passwd")).toThrow(
+      "path traversal not allowed"
+    );
+    expect(() => validateBranchName("foo/../bar")).toThrow(
+      "path traversal not allowed"
+    );
+    expect(() => validateBranchName("..")).toThrow("path traversal not allowed");
+  });
+
+  it("should accept valid branch names", () => {
+    expect(() => validateBranchName("feature/my-branch")).not.toThrow();
+    expect(() => validateBranchName("main")).not.toThrow();
+    expect(() => validateBranchName("refs/heads/feature-x")).not.toThrow();
+    expect(() => validateBranchName("v1.2.3")).not.toThrow();
+  });
+
+  it("should reject empty or invalid", () => {
+    expect(() => validateBranchName("")).toThrow();
+    expect(() => validateBranchName("branch;rm -rf /")).toThrow(
+      "disallowed characters"
+    );
   });
 });

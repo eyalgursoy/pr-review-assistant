@@ -380,6 +380,16 @@
           "type": "boolean",
           "default": true,
           "description": "Checkout PR branch when reviewing for accurate line numbers. If disabled, comments may drift if you're on a different branch."
+        },
+        "prReview.verboseLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log diff content and AI response previews to Output. Disable for privacy."
+        },
+        "prReview.clearRestoreStackOnDeactivate": {
+          "type": "boolean",
+          "default": false,
+          "description": "Clear PR branch restore stack when extension deactivates. When false, restore prompt appears on next launch."
         }
       }
     }
@@ -412,6 +422,7 @@
     "@google/generative-ai": "^0.24.1",
     "@octokit/rest": "^20.0.0",
     "groq-sdk": "^0.37.0",
-    "openai": "^4.77.0"
+    "openai": "^4.77.0",
+    "zod": "^3.25.76"
   }
 }

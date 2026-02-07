@@ -13,10 +13,14 @@ import {
   getAllComments,
 } from "./state";
 import { log } from "./logger";
+import { sanitizeMarkdownForDisplay } from "./markdown-utils";
 import type { ReviewComment, CommentStatus } from "./types";
 
 let commentController: vscode.CommentController | undefined;
+let extensionUri: vscode.Uri | undefined;
 const threadMap = new Map<string, vscode.CommentThread>();
+
+export { sanitizeMarkdownForDisplay };
 
 /**
  * Custom Comment class for PR Review comments
@@ -52,6 +56,7 @@ class PRReviewComment implements vscode.Comment {
  * Initialize the comment controller
  */
 export function initCommentController(context: vscode.ExtensionContext): void {
+  extensionUri = context.extensionUri;
   // Create comment controller
   commentController = vscode.comments.createCommentController(
     "prReviewAssistant",
@@ -306,26 +311,27 @@ function getFileUri(filePath: string): vscode.Uri {
 }
 
 /**
- * Format comment body as markdown
+ * Format comment body as markdown (sanitized for safe display)
  */
 function formatCommentBody(comment: ReviewComment): vscode.MarkdownString {
   const md = new vscode.MarkdownString();
-  md.isTrusted = true;
-  md.supportHtml = true;
+  md.isTrusted = false;
+  md.supportHtml = false;
 
-  // Issue description
-  md.appendMarkdown(`**Issue:** ${comment.issue}\n\n`);
+  const safeIssue = sanitizeMarkdownForDisplay(comment.issue);
+  const safeSuggestion = comment.suggestion
+    ? sanitizeMarkdownForDisplay(comment.suggestion)
+    : "";
+  const safeCodeSnippet = comment.codeSnippet
+    ? sanitizeMarkdownForDisplay(comment.codeSnippet)
+    : "";
 
-  // Suggestion if available
-  if (comment.suggestion) {
-    md.appendMarkdown(`**Suggestion:** ${comment.suggestion}\n\n`);
+  md.appendMarkdown(`**Issue:** ${safeIssue}\n\n`);
+  if (safeSuggestion) {
+    md.appendMarkdown(`**Suggestion:** ${safeSuggestion}\n\n`);
   }
-
-  // Code snippet if available
-  if (comment.codeSnippet) {
-    md.appendMarkdown(
-      `**Suggested fix:**\n\`\`\`\n${comment.codeSnippet}\n\`\`\`\n`
-    );
+  if (safeCodeSnippet) {
+    md.appendMarkdown(`**Suggested fix:**\n\`\`\`\n${safeCodeSnippet}\n\`\`\`\n`);
   }
 
   return md;
@@ -348,12 +354,13 @@ function getSeverityLabel(severity: string): string {
  * Get author info based on severity (for visual distinction)
  */
 function getAuthorInfo(severity: string): vscode.CommentAuthorInformation {
-  return {
+  const result: vscode.CommentAuthorInformation = {
     name: `AI Review (${severity})`,
-    iconPath: vscode.Uri.parse(
-      "https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/light/sparkle.svg"
-    ),
   };
+  if (extensionUri) {
+    result.iconPath = vscode.Uri.joinPath(extensionUri, "resources", "sparkle.svg");
+  }
+  return result;
 }
 
 /**

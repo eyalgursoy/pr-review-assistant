@@ -72,6 +72,9 @@ export function validateBranchName(name: string): void {
   if (!name || typeof name !== "string") {
     throw new Error("Invalid branch name: empty or not a string");
   }
+  if (name.includes("..")) {
+    throw new Error("Invalid branch name: path traversal not allowed");
+  }
   if (!BRANCH_REGEX.test(name)) {
     throw new Error(
       "Invalid branch name: contains disallowed characters (allowed: a-z, A-Z, 0-9, /, _, ., -)"

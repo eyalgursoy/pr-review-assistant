@@ -82,6 +82,11 @@ let treeView: vscode.TreeView<unknown>;
 let decorations: ReturnType<typeof createCommentDecorations>;
 let extensionContext: vscode.ExtensionContext;
 
+/**
+ * Restore stack: branch names and stash messages for PR review checkout.
+ * Persisted in globalState (prReview.restoreStack) across sessions.
+ * Cleared when user dismisses restore prompt or completes restore.
+ */
 function getRestoreStack(): RestoreStackEntry[] {
   const raw = extensionContext.globalState.get<RestoreStackEntry[]>(
     RESTORE_STACK_KEY
@@ -1245,4 +1250,10 @@ async function clearApiKeyCommand(): Promise<void> {
 export function deactivate() {
   console.log("PR Review Assistant deactivated");
   disposeCommentThreads();
+  const clearOnDeactivate = vscode.workspace
+    .getConfiguration("prReview")
+    .get<boolean>("clearRestoreStackOnDeactivate", false);
+  if (clearOnDeactivate && extensionContext) {
+    setRestoreStack([]);
+  }
 }

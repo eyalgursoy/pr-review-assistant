@@ -10,6 +10,7 @@ AI-powered PR code review extension for VS Code / Cursor. Lives in the **Source 
 - **GitHub Integration**: Submit approved comments directly to PRs
 - **One-Click Workflow**: Start review → AI analyzes → Review comments → Submit
 - **No API Key Needed**: Use Cursor CLI with your existing Cursor subscription!
+- **Secure API Key Storage**: API keys stored in VS Code SecretStorage (OS credential manager) instead of plain text settings
 
 ## Installation
 
@@ -112,15 +113,27 @@ export async function fetchData() {
 
 Open Settings (Cmd+,) and search for `prReview`:
 
-| Setting                    | Description                  | Default      |
-| -------------------------- | ---------------------------- | ------------ |
-| `prReview.aiProvider`      | AI provider for code review  | `cursor-cli` |
-| `prReview.anthropicApiKey` | Anthropic API key            | -            |
-| `prReview.openaiApiKey`    | OpenAI API key               | -            |
-| `prReview.geminiApiKey`    | Google Gemini API key        | -            |
-| `prReview.groqApiKey`      | Groq API key                 | -            |
-| `prReview.githubAuth`      | GitHub auth method           | `gh-cli`     |
-| `prReview.autoRunAi`       | Auto-run AI after loading PR | `false`      |
+| Setting                               | Description                                      | Default      |
+| ------------------------------------- | ------------------------------------------------ | ------------ |
+| `prReview.aiProvider`                 | AI provider for code review                     | `cursor-cli` |
+| `prReview.anthropicApiKey`           | Anthropic API key (deprecated: use Set API Key) | -            |
+| `prReview.openaiApiKey`              | OpenAI API key (deprecated: use Set API Key)     | -            |
+| `prReview.geminiApiKey`              | Google Gemini API key (deprecated: use Set API Key) | -         |
+| `prReview.groqApiKey`                | Groq API key (deprecated: use Set API Key)       | -            |
+| `prReview.githubAuth`                | GitHub auth method                              | `gh-cli`     |
+| `prReview.autoRunAi`                 | Auto-run AI after loading PR                     | `false`      |
+| `prReview.verboseLogging`            | Log diff and AI response content (privacy: off)  | `false`      |
+| `prReview.clearRestoreStackOnDeactivate` | Clear branch restore stack on extension exit | `false`      |
+
+### Secure API Key Storage (Recommended)
+
+Use the **Set API Key (Secure)** command instead of storing keys in settings. Keys are stored in your OS credential manager:
+
+1. Open Command Palette (Cmd+Shift+P)
+2. Run **PR Review: Set API Key (Secure)**
+3. Select your AI provider and paste your key
+
+Keys stored in settings are migrated to secure storage on first use.
 
 ### AI Provider Setup
 
@@ -183,12 +196,14 @@ Get a free API key at [console.groq.com](https://console.groq.com)
 
 All commands are available from the sidebar, but also via Command Palette:
 
-| Command                    | Description                      |
-| -------------------------- | -------------------------------- |
-| `PR Review: Start Review`  | Enter PR URL and load            |
-| `PR Review: Run AI Review` | Analyze code with AI             |
-| `PR Review: Submit Review` | Post approved comments to GitHub |
-| `PR Review: Clear Review`  | Reset and start fresh            |
+| Command                       | Description                      |
+| ----------------------------- | -------------------------------- |
+| `PR Review: Start Review`     | Enter PR URL and load            |
+| `PR Review: Run AI Review`    | Analyze code with AI             |
+| `PR Review: Submit Review`    | Post approved comments to GitHub |
+| `PR Review: Clear Review`     | Reset and start fresh            |
+| `PR Review: Set API Key (Secure)` | Store API key in secure storage |
+| `PR Review: Clear API Key`    | Remove stored API key            |
 
 ## Comment Actions
 

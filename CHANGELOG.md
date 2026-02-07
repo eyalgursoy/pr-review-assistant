@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **API key storage**: Migrate from plain text settings to VS Code SecretStorage (OS credential manager)
+- **Secure temp files**: Use cryptographically random filenames and restrictive permissions (0600) for temporary files
+- **Markdown sanitization**: Sanitize AI-generated comment content to prevent XSS; set `isTrusted` and `supportHtml` to false
+- **Branch validation**: Reject `..` in branch names to prevent path traversal
+- **Error sanitization**: Redact API keys from error messages for all providers
+
+### Added
+
+- `PR Review: Set API Key (Secure)` command for secure API key storage
+- `PR Review: Clear API Key` command to remove stored keys
+- `prReview.verboseLogging` setting to disable diff/response logging (default: false)
+- `prReview.clearRestoreStackOnDeactivate` setting to clear restore stack on exit
+- Zod schema validation for AI review JSON responses
+- Bundled sparkle icon (no external URL fetch)
+
+### Changed
+
+- API key settings deprecated in favor of secure storage (existing keys auto-migrate)
+- Comment body rendering uses sanitized markdown
+
+## [0.13.2] - 2025-02
+
+### Fixed
+
+- Resolve stdin pipe issue in Electron/Node for Cursor CLI
+- Prevent command injection and path traversal
+
 ## [0.13.1] - 2025-02
 
 ### Fixed

@@ -8,6 +8,13 @@ import * as vscode from "vscode";
 let outputChannel: vscode.OutputChannel | undefined;
 
 /**
+ * Check if verbose logging is enabled (logs diff/response content)
+ */
+export function isVerboseLogging(): boolean {
+  return vscode.workspace.getConfiguration("prReview").get<boolean>("verboseLogging", false);
+}
+
+/**
  * Initialize the output channel
  */
 export function initLogger(context: vscode.ExtensionContext): void {
