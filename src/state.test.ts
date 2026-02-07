@@ -178,8 +178,9 @@ describe("state", () => {
       id,
       file,
       line: 10,
+      side: "RIGHT",
       severity: "medium",
-      message: `Comment ${id}`,
+      issue: `Issue ${id}`,
       status,
     });
 
