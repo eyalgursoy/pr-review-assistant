@@ -34,7 +34,7 @@ export async function loadCustomRules(
     : path.join(workspaceRoot, ".pr-review-rules.json");
 
   try {
-    const content = fs.readFileSync(rulesPath, "utf-8");
+    const content = await fs.promises.readFile(rulesPath, "utf-8");
     const parsed = JSON.parse(content) as CustomRulesConfig;
 
     return customConfigToRuleSet(parsed);

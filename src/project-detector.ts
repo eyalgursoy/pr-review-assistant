@@ -6,6 +6,12 @@
 import * as vscode from "vscode";
 import { log } from "./logger";
 
+/** Decode Uint8Array to UTF-8 string (vscode.workspace.fs.readFile returns Uint8Array) */
+const textDecoder = new TextDecoder("utf-8");
+function decodeFileContent(content: Uint8Array): string {
+  return textDecoder.decode(content);
+}
+
 export type ProjectType =
   | "node"
   | "python"
@@ -180,7 +186,7 @@ async function detectNodeFrameworks(rootUri: vscode.Uri): Promise<Framework[]> {
 
   try {
     const content = await vscode.workspace.fs.readFile(packageJsonUri);
-    const json = JSON.parse(content.toString()) as Record<string, unknown>;
+    const json = JSON.parse(decodeFileContent(content)) as Record<string, unknown>;
     const deps = {
       ...((json.dependencies as Record<string, string>) ?? {}),
       ...((json.devDependencies as Record<string, string>) ?? {}),
@@ -213,7 +219,7 @@ async function detectPythonFrameworks(rootUri: vscode.Uri): Promise<Framework[]>
   const pyprojectUri = vscode.Uri.joinPath(rootUri, "pyproject.toml");
   try {
     const content = await vscode.workspace.fs.readFile(pyprojectUri);
-    const text = content.toString();
+    const text = decodeFileContent(content);
     if (text.includes("django")) frameworks.push("django");
     if (text.includes("fastapi")) frameworks.push("fastapi");
     if (text.includes("flask")) frameworks.push("flask");
@@ -226,7 +232,7 @@ async function detectPythonFrameworks(rootUri: vscode.Uri): Promise<Framework[]>
   const reqUri = vscode.Uri.joinPath(rootUri, "requirements.txt");
   try {
     const content = await vscode.workspace.fs.readFile(reqUri);
-    const text = content.toString().toLowerCase();
+    const text = decodeFileContent(content).toLowerCase();
     if (text.includes("django")) frameworks.push("django");
     if (text.includes("fastapi")) frameworks.push("fastapi");
     if (text.includes("flask")) frameworks.push("flask");
@@ -273,7 +279,7 @@ async function detectMonorepo(rootUri: vscode.Uri): Promise<boolean> {
   const packageJsonUri = vscode.Uri.joinPath(rootUri, "package.json");
   try {
     const content = await vscode.workspace.fs.readFile(packageJsonUri);
-    const json = JSON.parse(content.toString()) as Record<string, unknown>;
+    const json = JSON.parse(decodeFileContent(content)) as Record<string, unknown>;
     const workspaces = json.workspaces;
     if (workspaces && (Array.isArray(workspaces) ? workspaces.length > 0 : true)) {
       return true;
