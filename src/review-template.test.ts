@@ -2,22 +2,33 @@
  * Tests for review-template
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// Mock vscode before importing review-template (which pulls in review-rules/custom-rules)
+vi.mock("vscode", () => ({
+  workspace: {
+    getConfiguration: vi.fn(() => ({
+      get: vi.fn(() => ""),
+    })),
+    workspaceFolders: [],
+  },
+}));
 import { buildReviewPrompt, REVIEW_TEMPLATE } from "./review-template";
+import type { ProjectContext } from "./project-detector";
+
+const minimalContext: ProjectContext = {
+  projectType: "unknown",
+  languages: [],
+  frameworks: [],
+  isMonorepo: false,
+  rootPath: null,
+};
 
 describe("REVIEW_TEMPLATE", () => {
   it("should contain review scope section", () => {
     expect(REVIEW_TEMPLATE).toContain("## Review Scope");
     expect(REVIEW_TEMPLATE).toContain("New Files First");
     expect(REVIEW_TEMPLATE).toContain("Modified Files");
-  });
-
-  it("should contain focus areas", () => {
-    expect(REVIEW_TEMPLATE).toContain("## Focus Areas");
-    expect(REVIEW_TEMPLATE).toContain("Critical Issues");
-    expect(REVIEW_TEMPLATE).toContain("Code Quality");
-    expect(REVIEW_TEMPLATE).toContain("Performance");
-    expect(REVIEW_TEMPLATE).toContain("security"); // lowercase in "security vulnerabilities"
   });
 
   it("should contain output format instructions", () => {
@@ -33,12 +44,13 @@ describe("REVIEW_TEMPLATE", () => {
 });
 
 describe("buildReviewPrompt", () => {
-  it("should include PR information", () => {
-    const prompt = buildReviewPrompt(
+  it("should include PR information", async () => {
+    const prompt = await buildReviewPrompt(
       "feature/new-feature",
       "main",
       "Add new feature",
-      "diff content here"
+      "diff content here",
+      minimalContext
     );
 
     expect(prompt).toContain("## PR Information");
@@ -46,12 +58,13 @@ describe("buildReviewPrompt", () => {
     expect(prompt).toContain("**Branch**: feature/new-feature → main");
   });
 
-  it("should include the review template", () => {
-    const prompt = buildReviewPrompt(
+  it("should include the review template", async () => {
+    const prompt = await buildReviewPrompt(
       "feature/test",
       "develop",
       "Test PR",
-      "some diff"
+      "some diff",
+      minimalContext
     );
 
     expect(prompt).toContain("# Code Review Request");
@@ -59,37 +72,52 @@ describe("buildReviewPrompt", () => {
     expect(prompt).toContain("## Focus Areas");
   });
 
-  it("should include code changes section header", () => {
-    const prompt = buildReviewPrompt(
+  it("should include code changes section header", async () => {
+    const prompt = await buildReviewPrompt(
       "fix/bug",
       "main",
       "Fix critical bug",
-      "the diff"
+      "the diff",
+      minimalContext
     );
 
     expect(prompt).toContain("## Code Changes");
     expect(prompt).toContain("Please review the following diff:");
   });
 
-  it("should handle special characters in PR title", () => {
-    const prompt = buildReviewPrompt(
+  it("should handle special characters in PR title", async () => {
+    const prompt = await buildReviewPrompt(
       "feature/test",
       "main",
       "Fix \"quotes\" and <brackets>",
-      "diff"
+      "diff",
+      minimalContext
     );
 
     expect(prompt).toContain("Fix \"quotes\" and <brackets>");
   });
 
-  it("should handle branch names with slashes", () => {
-    const prompt = buildReviewPrompt(
+  it("should handle branch names with slashes", async () => {
+    const prompt = await buildReviewPrompt(
       "feature/user/auth/login",
       "develop/v2",
       "Auth feature",
-      "diff"
+      "diff",
+      minimalContext
     );
 
     expect(prompt).toContain("feature/user/auth/login → develop/v2");
+  });
+
+  it("should include project context section", async () => {
+    const prompt = await buildReviewPrompt(
+      "feature/test",
+      "main",
+      "Test",
+      "diff",
+      minimalContext
+    );
+
+    expect(prompt).toContain("## Project Context");
   });
 });

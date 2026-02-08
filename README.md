@@ -11,6 +11,7 @@ AI-powered PR code review extension for VS Code / Cursor. Lives in the **Source 
 - **One-Click Workflow**: Start review → AI analyzes → Review comments → Submit
 - **No API Key Needed**: Use Cursor CLI with your existing Cursor subscription!
 - **Secure API Key Storage**: API keys stored in VS Code SecretStorage (OS credential manager) instead of plain text settings
+- **Project-Aware Reviews**: Automatically detects project type, languages, and frameworks for context-specific review rules
 
 ## Installation
 
@@ -24,13 +25,13 @@ Download the latest `.vsix` from [GitHub Releases](https://github.com/eyalgursoy
 
 ```bash
 # Install in Cursor
-cursor --install-extension pr-review-assistant-0.14.1.vsix
+cursor --install-extension pr-review-assistant-0.15.0.vsix
 
 # Or in VS Code
-code --install-extension pr-review-assistant-0.14.1.vsix
+code --install-extension pr-review-assistant-0.15.0.vsix
 ```
 
-Replace `0.14.1` with the version you downloaded if different.
+Replace `0.15.0` with the version you downloaded if different.
 
 ### Prerequisites
 
@@ -124,6 +125,9 @@ Open Settings (Cmd+,) and search for `prReview`:
 | `prReview.autoRunAi`                 | Auto-run AI after loading PR                     | `false`      |
 | `prReview.verboseLogging`            | Log diff and AI response content (privacy: off)  | `false`      |
 | `prReview.clearRestoreStackOnDeactivate` | Clear branch restore stack on extension exit | `false`      |
+| `prReview.enableProjectDetection`   | Auto-detect project type and apply language/framework rules | `true`       |
+| `prReview.customRulesPath`          | Path to custom rules file (e.g. .pr-review-rules.json)     | ``           |
+| `prReview.preferredLanguageRules`   | Override detected languages (comma-separated, e.g. typescript,python) | `` |
 
 ### Secure API Key Storage (Recommended)
 
@@ -134,6 +138,21 @@ Use the **Set API Key (Secure)** command instead of storing keys in settings. Ke
 3. Select your AI provider and paste your key
 
 Keys stored in settings are migrated to secure storage on first use.
+
+### Custom Review Rules
+
+Create `.pr-review-rules.json` in your workspace root to add project-specific rules:
+
+```json
+{
+  "focusAreas": ["Our API uses camelCase for all endpoints"],
+  "antiPatterns": ["Hardcoded environment URLs"],
+  "bestPractices": ["Use our shared ErrorBoundary for error handling"],
+  "ignore": ["generated/", "*.d.ts"]
+}
+```
+
+Or set `prReview.customRulesPath` to use a different file path.
 
 ### AI Provider Setup
 
