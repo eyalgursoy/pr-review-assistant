@@ -35,13 +35,37 @@ export async function loadCustomRules(
 
   try {
     const content = await fs.promises.readFile(rulesPath, "utf-8");
-    const parsed = JSON.parse(content) as CustomRulesConfig;
+    const parsed = JSON.parse(content);
+    const validated = validateCustomRulesConfig(parsed);
 
-    return customConfigToRuleSet(parsed);
+    return customConfigToRuleSet(validated);
   } catch {
     // File doesn't exist or invalid JSON - that's ok
     return null;
   }
+}
+
+/**
+ * Validate and sanitize parsed JSON to ensure it conforms to CustomRulesConfig.
+ * Invalid fields are replaced with undefined (which becomes empty arrays in customConfigToRuleSet).
+ */
+function validateCustomRulesConfig(parsed: unknown): CustomRulesConfig {
+  if (typeof parsed !== "object" || parsed === null) {
+    return {};
+  }
+
+  const obj = parsed as Record<string, unknown>;
+
+  const isStringArray = (value: unknown): value is string[] =>
+    Array.isArray(value) && value.every((item) => typeof item === "string");
+
+  return {
+    extends: isStringArray(obj.extends) ? obj.extends : undefined,
+    focusAreas: isStringArray(obj.focusAreas) ? obj.focusAreas : undefined,
+    antiPatterns: isStringArray(obj.antiPatterns) ? obj.antiPatterns : undefined,
+    bestPractices: isStringArray(obj.bestPractices) ? obj.bestPractices : undefined,
+    ignore: isStringArray(obj.ignore) ? obj.ignore : undefined,
+  };
 }
 
 function customConfigToRuleSet(config: CustomRulesConfig): ReviewRuleSet {
