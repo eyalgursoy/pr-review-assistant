@@ -166,7 +166,7 @@ async function detectProjectType(rootUri: vscode.Uri): Promise<ProjectType> {
   for (const { file, type } of MANIFEST_INDICATORS) {
     const uri = vscode.Uri.joinPath(rootUri, file);
     try {
-      await vscode.workspace.fs.readFile(uri);
+      await vscode.workspace.fs.stat(uri);
       return type;
     } catch {
       // File doesn't exist, continue
@@ -267,7 +267,7 @@ async function detectMonorepo(rootUri: vscode.Uri): Promise<boolean> {
     } else {
       const fileUri = vscode.Uri.joinPath(rootUri, indicator);
       try {
-        await vscode.workspace.fs.readFile(fileUri);
+        await vscode.workspace.fs.stat(fileUri);
         return true;
       } catch {
         // File doesn't exist
