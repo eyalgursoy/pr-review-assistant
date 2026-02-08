@@ -219,7 +219,7 @@ async function detectPythonFrameworks(rootUri: vscode.Uri): Promise<Framework[]>
   const pyprojectUri = vscode.Uri.joinPath(rootUri, "pyproject.toml");
   try {
     const content = await vscode.workspace.fs.readFile(pyprojectUri);
-    const text = decodeFileContent(content);
+    const text = decodeFileContent(content).toLowerCase();
     if (text.includes("django")) frameworks.push("django");
     if (text.includes("fastapi")) frameworks.push("fastapi");
     if (text.includes("flask")) frameworks.push("flask");
