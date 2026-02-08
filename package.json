@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.14.1",
+  "version": "0.15.1",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -390,6 +390,21 @@
           "type": "boolean",
           "default": false,
           "description": "Clear PR branch restore stack when extension deactivates. When false, restore prompt appears on next launch."
+        },
+        "prReview.enableProjectDetection": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically detect project type, languages, and frameworks for context-aware review rules. When disabled, uses generic rules only."
+        },
+        "prReview.customRulesPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to custom rules file (e.g. .pr-review-rules.json). Relative to workspace root, or absolute. Empty uses workspace root .pr-review-rules.json."
+        },
+        "prReview.preferredLanguageRules": {
+          "type": "string",
+          "default": "",
+          "description": "Override detected language rules. Comma-separated list (e.g. typescript,python). Empty uses auto-detection."
         }
       }
     }

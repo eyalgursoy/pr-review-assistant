@@ -7,16 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Security
-
-- **API key storage**: Migrate from plain text settings to VS Code SecretStorage (OS credential manager)
-- **Secure temp files**: Use cryptographically random filenames and restrictive permissions (0600) for temporary files
-- **Markdown sanitization**: Sanitize AI-generated comment content to prevent XSS; set `isTrusted` and `supportHtml` to false
-- **Branch validation**: Reject `..` in branch names to prevent path traversal
-- **Error sanitization**: Redact API keys from error messages for all providers
-
 ### Added
 
+- **Project-aware AI reviews**: Automatically detects project type (Node, Python, Rust, Go, Java, .NET), languages, and frameworks (React, Express, Django, etc.)
+- **Language-specific rules**: TypeScript, Python, Go, Rust with tailored focus areas and anti-patterns
+- **Framework-specific rules**: React, Express, Django with ecosystem best practices
+- **Custom rules**: `.pr-review-rules.json` in workspace root for project-specific focus areas and ignore patterns
+- `prReview.enableProjectDetection` setting (default: true)
+- `prReview.customRulesPath` setting for custom rules file path
+- `prReview.preferredLanguageRules` setting to override detected languages
 - `PR Review: Set API Key (Secure)` command for secure API key storage
 - `PR Review: Clear API Key` command to remove stored keys
 - `prReview.verboseLogging` setting to disable diff/response logging (default: false)
@@ -26,8 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Review prompt now includes project context and merged rules for more relevant feedback
 - API key settings deprecated in favor of secure storage (existing keys auto-migrate)
 - Comment body rendering uses sanitized markdown
+
+### Security
+
+- **API key storage**: Migrate from plain text settings to VS Code SecretStorage (OS credential manager)
+- **Secure temp files**: Use cryptographically random filenames and restrictive permissions (0600) for temporary files
+- **Markdown sanitization**: Sanitize AI-generated comment content to prevent XSS; set `isTrusted` and `supportHtml` to false
+- **Branch validation**: Reject `..` in branch names to prevent path traversal
+- **Error sanitization**: Redact API keys from error messages for all providers
 
 ## [0.13.2] - 2025-02
 

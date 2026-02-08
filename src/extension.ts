@@ -56,6 +56,11 @@ import { initSecretStorage, setApiKey, deleteApiKey } from "./secrets";
 import { writeSecureTempFile } from "./shell-utils";
 import { buildReviewPrompt } from "./review-template";
 import {
+  detectProjectContext,
+  type ProjectContext,
+  type Framework,
+} from "./project-detector";
+import {
   startProgress,
   updateStage,
   resetProgress,
@@ -722,12 +727,36 @@ async function runReview() {
   startProgress();
 
   try {
+    // Detect project context for rules (unless disabled)
+    const config = vscode.workspace.getConfiguration("prReview");
+    const enableProjectDetection = config.get<boolean>(
+      "enableProjectDetection",
+      true
+    );
+    const changedPaths = state.files.map((f) => f.path);
+    const projectContext: ProjectContext = enableProjectDetection
+      ? await detectProjectContext(changedPaths)
+      : {
+          projectType: "unknown",
+          languages: [],
+          frameworks: [] as Framework[],
+          isMonorepo: false,
+          rootPath: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null,
+        };
+
+    log(
+      "Project context:",
+      { type: projectContext.projectType, languages: projectContext.languages, frameworks: projectContext.frameworks }
+    );
+
     // Build the prompt
-    const template = buildReviewPrompt(
+    const template = await buildReviewPrompt(
       state.pr!.headBranch,
       state.pr!.baseBranch,
       state.pr!.title,
-      state.diff
+      state.diff,
+      projectContext,
+      projectContext.rootPath
     );
 
     log("Review template length:", template.length);

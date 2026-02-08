@@ -1,6 +1,13 @@
 /**
  * Review template - based on PR_REVIEW_TEMPLATE.md
+ * Supports project-aware rules for context-specific reviews
  */
+
+import type { ProjectContext } from "./project-detector";
+import {
+  loadRulesForContext,
+  formatRulesForPrompt,
+} from "./review-rules";
 
 export const REVIEW_TEMPLATE = `# Code Review Request
 
@@ -10,18 +17,6 @@ As a senior developer, please review the changes in this PR.
 
 1. **New Files First**: Prioritize review of newly added files/components
 2. **Modified Files**: Review significant changes in existing files
-
-## Focus Areas
-
-- **Critical Issues**: Bugs, security vulnerabilities, data loss risks, breaking changes
-- **Code Quality**: Best practices, maintainability, readability, consistency with codebase patterns
-- **Architecture**: Design decisions, component structure, separation of concerns
-- **Performance**: Unnecessary re-renders, memory leaks, inefficient algorithms, bundle size impact
-- **Testing**: Test coverage for new/changed functionality, test quality
-- **Accessibility**: ARIA attributes, keyboard navigation, screen reader support
-- **Type Safety**: TypeScript usage, type definitions, null/undefined handling
-- **Error Handling**: User-facing errors, edge cases, error boundaries
-- **Documentation**: Code comments, README updates, API documentation
 
 ## Output Format
 
@@ -42,15 +37,31 @@ For each finding, include:
 - Only report actual issues, not style preferences`;
 
 /**
- * Build the full prompt with PR info and diff
+ * Build the full prompt with PR info, project-aware rules, and diff
  */
-export function buildReviewPrompt(
+export async function buildReviewPrompt(
   headBranch: string,
   baseBranch: string,
   prTitle: string,
-  _diff: string
-): string {
+  _diff: string,
+  projectContext: ProjectContext,
+  workspaceRoot?: string | null
+): Promise<string> {
+  const rules = await loadRulesForContext(
+    projectContext,
+    workspaceRoot ?? projectContext.rootPath ?? undefined
+  );
+  const rulesSection = formatRulesForPrompt(rules);
+
   return `${REVIEW_TEMPLATE}
+
+---
+
+## Project Context
+
+Detected: ${projectContext.projectType} project${projectContext.languages.length ? `, languages: ${projectContext.languages.join(", ")}` : ""}${projectContext.frameworks.length ? `, frameworks: ${projectContext.frameworks.join(", ")}` : ""}
+
+${rulesSection}
 
 ---
 
