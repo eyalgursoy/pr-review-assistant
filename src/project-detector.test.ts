@@ -6,6 +6,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const workspaceFolders = [{ uri: { fsPath: "/test/workspace" } }];
 const mockReadFile = vi.fn();
+const mockStat = vi.fn();
+const mockReadDirectory = vi.fn();
 const mockFindFiles = vi.fn();
 
 // Mock vscode before importing
@@ -19,14 +21,15 @@ vi.mock("vscode", () => ({
     })),
     fs: {
       readFile: (...args: unknown[]) => mockReadFile(...args),
+      stat: (...args: unknown[]) => mockStat(...args),
+      readDirectory: (...args: unknown[]) => mockReadDirectory(...args),
     },
-    readDirectory: vi.fn(),
     findFiles: (...args: unknown[]) => mockFindFiles(...args),
   },
   Uri: {
     file: (path: string) => ({ fsPath: path }),
-    joinPath: (_base: unknown, ...segments: string[]) => ({
-      fsPath: segments.join("/"),
+    joinPath: (base: { fsPath: string }, ...segments: string[]) => ({
+      fsPath: `${base.fsPath}/${segments.join("/")}`,
     }),
   },
 }));
@@ -37,6 +40,9 @@ describe("detectProjectContext", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFindFiles.mockResolvedValue([]);
+    mockStat.mockRejectedValue(new Error("not found"));
+    mockReadFile.mockRejectedValue(new Error("not found"));
+    mockReadDirectory.mockRejectedValue(new Error("not found"));
     workspaceFolders.length = 1;
     workspaceFolders[0] = { uri: { fsPath: "/test/workspace" } };
   });
@@ -50,8 +56,11 @@ describe("detectProjectContext", () => {
   });
 
   it("should detect node project from package.json", async () => {
+    // stat succeeds for package.json (first manifest check)
+    mockStat.mockResolvedValueOnce({ type: 1 });
+    // readFile for framework detection
     mockReadFile.mockResolvedValueOnce(
-      Buffer.from(JSON.stringify({ name: "test", dependencies: {} }))
+      new TextEncoder().encode(JSON.stringify({ name: "test", dependencies: {} }))
     );
 
     const context = await detectProjectContext();
@@ -59,19 +68,27 @@ describe("detectProjectContext", () => {
   });
 
   it("should detect python project from pyproject.toml", async () => {
-    mockReadFile
-      .mockRejectedValueOnce(new Error("not found"))
-      .mockRejectedValueOnce(new Error("not found"))
-      .mockRejectedValueOnce(new Error("not found"))
-      .mockResolvedValueOnce(Buffer.from("[project]\nname = 'test'"));
+    // stat fails for package.json, requirements.txt, then succeeds for pyproject.toml
+    mockStat
+      .mockRejectedValueOnce(new Error("not found")) // package.json
+      .mockRejectedValueOnce(new Error("not found")) // requirements.txt
+      .mockResolvedValueOnce({ type: 1 }); // pyproject.toml
+
+    // readFile for framework detection (pyproject.toml)
+    mockReadFile.mockResolvedValueOnce(
+      new TextEncoder().encode("[project]\nname = 'test'")
+    );
 
     const context = await detectProjectContext();
     expect(context.projectType).toBe("python");
   });
 
   it("should add languages from changed file extensions", async () => {
+    // stat succeeds for package.json
+    mockStat.mockResolvedValueOnce({ type: 1 });
+    // readFile for framework detection
     mockReadFile.mockResolvedValueOnce(
-      Buffer.from(JSON.stringify({ name: "test" }))
+      new TextEncoder().encode(JSON.stringify({ name: "test" }))
     );
 
     const context = await detectProjectContext(["src/foo.ts", "src/bar.tsx"]);

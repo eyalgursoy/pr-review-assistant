@@ -3,9 +3,15 @@
  */
 
 import * as vscode from "vscode";
-import * as fs from "fs";
 import * as path from "path";
 import type { ReviewRuleSet } from "./index";
+import { log } from "../logger";
+
+/** Decode Uint8Array to UTF-8 string (vscode.workspace.fs.readFile returns Uint8Array) */
+const textDecoder = new TextDecoder("utf-8");
+function decodeFileContent(content: Uint8Array): string {
+  return textDecoder.decode(content);
+}
 
 export interface CustomRulesConfig {
   extends?: string[];
@@ -33,14 +39,30 @@ export async function loadCustomRules(
       : path.join(workspaceRoot, customPath)
     : path.join(workspaceRoot, ".pr-review-rules.json");
 
-  try {
-    const content = await fs.promises.readFile(rulesPath, "utf-8");
-    const parsed = JSON.parse(content);
-    const validated = validateCustomRulesConfig(parsed);
+  const rulesUri = vscode.Uri.file(rulesPath);
 
+  try {
+    const contentBytes = await vscode.workspace.fs.readFile(rulesUri);
+    const content = decodeFileContent(contentBytes);
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch (e) {
+      // JSON parse error - warn user so they know their custom rules file is malformed
+      log(`Invalid JSON in custom rules file (${rulesPath}): ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    }
+
+    const validated = validateCustomRulesConfig(parsed);
     return customConfigToRuleSet(validated);
-  } catch {
-    // File doesn't exist or invalid JSON - that's ok
+  } catch (e) {
+    // File doesn't exist - that's ok, custom rules are optional
+    if (e instanceof vscode.FileSystemError && e.code === "FileNotFound") {
+      return null;
+    }
+    // Log unexpected errors
+    log(`Error reading custom rules file (${rulesPath}): ${e instanceof Error ? e.message : String(e)}`);
     return null;
   }
 }
