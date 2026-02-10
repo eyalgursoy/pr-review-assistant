@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `npm run release` script to tag and push for GitHub releases
+- Upgraded to Node.js 24 LTS in CI/CD workflows
+
+## [0.15.1] - 2025-02
+
+### Added
+
 - **Project-aware AI reviews**: Automatically detects project type (Node, Python, Rust, Go, Java, .NET), languages, and frameworks (React, Express, Django, etc.)
 - **Language-specific rules**: TypeScript, Python, Go, Rust with tailored focus areas and anti-patterns
 - **Framework-specific rules**: React, Express, Django with ecosystem best practices

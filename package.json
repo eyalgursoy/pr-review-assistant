@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.15.1",
+  "version": "0.15.2",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -417,7 +417,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "package": "vsce package --no-dependencies",
-    "publish": "vsce publish"
+    "publish": "vsce publish",
+    "release": "git tag v$(node -p \"require('./package.json').version\") && git push origin main && git push origin v$(node -p \"require('./package.json').version\")"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

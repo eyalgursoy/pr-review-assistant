@@ -25,10 +25,10 @@ Download the latest `.vsix` from [GitHub Releases](https://github.com/eyalgursoy
 
 ```bash
 # Install in Cursor
-cursor --install-extension pr-review-assistant-0.15.1.vsix
+cursor --install-extension pr-review-assistant-0.15.2.vsix
 
 # Or in VS Code
-code --install-extension pr-review-assistant-0.15.1.vsix
+code --install-extension pr-review-assistant-0.15.2.vsix
 ```
 
 Replace `0.15.0` with the version you downloaded if different.
@@ -248,6 +248,9 @@ npm run watch
 
 # Package
 npm run package
+
+# Release (tag and push to trigger GitHub release)
+npm run release
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for full development and contribution guidelines.
@@ -256,7 +259,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full development and contribution gui
 
 - VS Code 1.85+ or Cursor
 - GitHub CLI (`gh`) installed and authenticated
-- Node.js 18+ (for development)
+- Node.js 24+ (for development)
 
 ## Contributing
 
