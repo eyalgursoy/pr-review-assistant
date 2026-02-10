@@ -30,8 +30,10 @@ npm-debug.log*
 # Tool output
 results.sarif
 
-# Cursor AI
-.cursor/
+# Cursor AI (keep rules and skills, ignore the rest)
+.cursor/*
+!.cursor/rules/
+!.cursor/skills/
 
 # Ralph
 ralph/

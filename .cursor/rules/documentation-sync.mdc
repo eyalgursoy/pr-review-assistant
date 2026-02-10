@@ -1,0 +1,52 @@
+---
+description: CRITICAL - Keep README, CHANGELOG, and version in sync with code changes. MUST follow before ANY commit.
+alwaysApply: true
+---
+
+# Documentation Sync Rule
+
+**STOP! Before committing, complete this checklist:**
+
+```
+Pre-Commit Checklist:
+- [ ] Version bumped in package.json (if needed)
+- [ ] Version updated in README.md install example (if bumped)
+- [ ] README.md updated (new commands/settings/features)
+- [ ] CHANGELOG.md [Unreleased] section updated
+```
+
+## When to Bump Version
+
+| Change Type | Bump | Example |
+|-------------|------|---------|
+| New feature | MINOR | 0.15.2 → 0.16.0 |
+| Bug fix / improvement | PATCH | 0.15.2 → 0.15.3 |
+| Breaking change | MAJOR | 0.15.2 → 1.0.0 |
+| Docs-only / refactor | NONE | - |
+
+**CRITICAL**: New npm script, command, or setting = PATCH minimum.
+
+## Files to Update
+
+### package.json
+Update `version` field when bumping.
+
+### README.md
+
+Update when adding:
+- **npm scripts** → Development section
+- **VS Code commands** → Commands table
+- **Settings** → Configuration table
+- **Features** → Features list
+- **Version bump** → Install example: `pr-review-assistant-X.X.X.vsix`
+
+### CHANGELOG.md
+
+Add under `[Unreleased]` with category: `Added`, `Changed`, `Fixed`, `Removed`, `Security`, `Deprecated`
+
+## Verification
+
+After staging, before commit, verify:
+1. `git diff --cached package.json` shows version bump (if needed)
+2. `git diff --cached README.md` shows relevant updates
+3. `git diff --cached CHANGELOG.md` shows new entry

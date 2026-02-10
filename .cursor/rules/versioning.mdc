@@ -1,0 +1,38 @@
+---
+description: Version management using SemVer for PR Review Assistant extension
+globs: package.json, README.md
+alwaysApply: false
+---
+
+# Version Management
+
+Follow Semantic Versioning (SemVer): MAJOR.MINOR.PATCH
+
+## Version Bump Rules
+
+| Bump | When | Examples |
+|------|------|----------|
+| MAJOR | Breaking changes | Removing features, changing APIs |
+| MINOR | New features | New commands, settings, UI panels |
+| PATCH | Bug fixes, small improvements | Error fixes, new scripts, tweaks |
+| NONE | Docs-only, refactoring | README typos, internal changes |
+
+## Files to Update When Bumping
+
+1. **package.json** - `version` field
+2. **README.md** - Version in install example: `pr-review-assistant-X.X.X.vsix`
+3. **CHANGELOG.md** - Entry under `[Unreleased]`
+
+## Release Process
+
+After committing with version bump:
+
+```bash
+npm run release
+```
+
+This tags the current version and pushes to trigger the GitHub release workflow.
+
+## Current Version
+
+Check `package.json` for current version before changes.

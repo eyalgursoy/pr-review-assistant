@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `npm run release` script to tag and push for GitHub releases
 - Upgraded to Node.js 24 LTS in CI/CD workflows
+- Commit workflow skill and improved documentation-sync rules for AI assistants
 
 ## [0.15.1] - 2025-02
 
