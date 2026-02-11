@@ -39,6 +39,26 @@ export async function gitFetch(): Promise<void> {
 }
 
 /**
+ * Update current branch from remote (origin). Assumes we are on `branch`.
+ * On failure (no origin, uncommitted changes, merge conflict, etc.), shows a
+ * warning and returns without throwing so the review flow can continue.
+ */
+export async function updateBranchFromRemote(branch: string): Promise<void> {
+  validateBranchName(branch);
+
+  const cwd = getWorkspacePath();
+  if (!cwd) throw new Error("No workspace folder open");
+
+  try {
+    await runCommand("git", ["pull", "origin", branch], { cwd });
+  } catch {
+    vscode.window.showWarningMessage(
+      "Could not update the PR branch from remote. Review may be against an older revision."
+    );
+  }
+}
+
+/**
  * Check if working directory has uncommitted changes
  */
 export async function hasUncommittedChanges(): Promise<boolean> {

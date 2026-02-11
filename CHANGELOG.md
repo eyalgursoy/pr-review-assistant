@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `npm run release` script to tag and push for GitHub releases
+
+### Fixed
+
+- PR branch is now updated from remote (`git pull origin <branch>`) when checking out or when already on the branch, so comments align with the latest revision
+- Restore flow now shows a warning when an expected stash is missing (e.g. dropped or applied elsewhere) instead of clearing the stack silently
+- Clear Review only shows "Review cleared" when branch restore succeeded; on restore failure shows an explicit error and suggests restoring manually or using the Restore prompt
 - Upgraded to Node.js 24 LTS in CI/CD workflows
 - Commit workflow skill and improved documentation-sync rules for AI assistants
 

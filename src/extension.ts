@@ -76,6 +76,7 @@ import {
   findStashByMessage,
   popStash,
   checkout,
+  updateBranchFromRemote,
   type RestoreStackEntry,
 } from "./git-utils";
 
@@ -105,10 +106,11 @@ function setRestoreStack(stack: RestoreStackEntry[]): void {
 /**
  * Restore branch(es) and stashes from the restore stack (reverse order).
  * Clears the stack on success. On stash pop conflict, leaves stash in place.
+ * @returns true if all entries were restored and the stack was cleared; false on early exit (checkout or stash pop failure).
  */
-async function restoreFromStack(): Promise<void> {
+async function restoreFromStack(): Promise<boolean> {
   const stack = getRestoreStack();
-  if (stack.length === 0) return;
+  if (stack.length === 0) return true;
 
   for (let i = stack.length - 1; i >= 0; i--) {
     const entry = stack[i];
@@ -126,17 +128,22 @@ async function restoreFromStack(): Promise<void> {
               `Stash pop failed: ${msg}. Resolve manually and run \`git stash pop\`.`
             );
             // Leave remaining entries for retry; don't clear stack
-            return;
+            return false;
           }
+        } else {
+          vscode.window.showWarningMessage(
+            `Stash not found for branch "${entry.branch}"; it may have been dropped or applied elsewhere. Only the branch was restored. Check \`git stash list\` or re-apply changes manually if needed.`
+          );
         }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       vscode.window.showErrorMessage(`Restore failed: ${msg}`);
-      return;
+      return false;
     }
   }
   setRestoreStack([]);
+  return true;
 }
 
 /**
@@ -157,7 +164,11 @@ async function ensureBranchForReview(
 
   try {
     const currentBranch = await getCurrentBranch();
-    if (currentBranch === headBranch) return true;
+    if (currentBranch === headBranch) {
+      await gitFetch();
+      await updateBranchFromRemote(headBranch);
+      return true;
+    }
 
     await gitFetch();
 
@@ -179,18 +190,21 @@ async function ensureBranchForReview(
       // Stash & Switch
       const entry = await stashAndCheckout(currentBranch, headBranch);
       setRestoreStack([...getRestoreStack(), entry]);
+      await updateBranchFromRemote(headBranch);
       return true;
     }
 
     if (dirty && isSwitchingReview) {
       const entry = await stashAndCheckout(currentBranch, headBranch);
       setRestoreStack([...getRestoreStack(), entry]);
+      await updateBranchFromRemote(headBranch);
       return true;
     }
 
     // Clean
     const entry = await checkoutBranch(currentBranch, headBranch);
     setRestoreStack([...getRestoreStack(), entry]);
+    await updateBranchFromRemote(headBranch);
     return true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -376,9 +390,15 @@ function registerCommands(context: vscode.ExtensionContext) {
   // Clear Review
   context.subscriptions.push(
     vscode.commands.registerCommand("prReview.clearReview", async () => {
-      await restoreFromStack();
+      const restored = await restoreFromStack();
       resetState();
-      vscode.window.showInformationMessage("Review cleared");
+      if (restored) {
+        vscode.window.showInformationMessage("Review cleared");
+      } else {
+        vscode.window.showErrorMessage(
+          "Could not restore your previous branch(es). You may still be on the PR branch. Restore your branch manually or use the Restore prompt when you reopen."
+        );
+      }
     })
   );
 
