@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- "No issues found" message no longer appears before AI review is run; it now correctly requires a completed review (summary exists)
 - PR branch is now updated from remote (`git pull origin <branch>`) when checking out or when already on the branch, so comments align with the latest revision
 - Restore flow now shows a warning when an expected stash is missing (e.g. dropped or applied elsewhere) instead of clearing the stack silently
 - Clear Review only shows "Review cleared" when branch restore succeeded; on restore failure shows an explicit error and suggests restoring manually or using the Restore prompt

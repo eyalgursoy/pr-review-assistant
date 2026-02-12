@@ -285,7 +285,8 @@ export class PRReviewTreeProvider
     if (
       !state.isLoading &&
       state.files.length > 0 &&
-      allComments.length === 0
+      allComments.length === 0 &&
+      state.summary !== null // Only show after review has actually completed
     ) {
       items.push({
         type: "status",
