@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.15.3",
+  "version": "0.15.4",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -102,6 +102,10 @@
         "command": "prReview.showLog",
         "title": "PR Review: Show Log",
         "icon": "$(output)"
+      },
+      {
+        "command": "prReview.selectCursorModel",
+        "title": "PR Review: Select Cursor CLI Model"
       },
       {
         "command": "prReview.setApiKey",
@@ -322,6 +326,11 @@
             "VS Code Language Model API - works with GitHub Copilot (not Cursor yet)",
             "Paste AI output manually"
           ]
+        },
+        "prReview.cursorCliModel": {
+          "type": "string",
+          "default": "Auto",
+          "description": "Model to use with Cursor CLI. Use 'PR Review: Select Cursor CLI Model' command to choose from available models."
         },
         "prReview.anthropicApiKey": {
           "type": "string",

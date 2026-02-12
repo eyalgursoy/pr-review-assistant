@@ -24,6 +24,7 @@ import type {
   ReviewComment,
   CommentStatus,
 } from "./types";
+import { getAIProvider, getSelectedCursorModel } from "./ai-providers";
 
 type TreeItemType =
   | "pr-info"
@@ -34,7 +35,8 @@ type TreeItemType =
   | "status"
   | "progress"
   | "progress-detail"
-  | "progress-stats";
+  | "progress-stats"
+  | "model-info";
 
 interface TreeItemData {
   type: TreeItemType;
@@ -62,6 +64,16 @@ export class PRReviewTreeProvider
     // Listen for progress changes
     onProgressChange(() => {
       this.refresh();
+    });
+
+    // Refresh when Cursor CLI model or AI provider changes (so model-info item updates)
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (
+        e.affectsConfiguration("prReview.cursorCliModel") ||
+        e.affectsConfiguration("prReview.aiProvider")
+      ) {
+        this.refresh();
+      }
     });
   }
 
@@ -157,6 +169,13 @@ export class PRReviewTreeProvider
         item.description = element.description;
         item.collapsibleState = vscode.TreeItemCollapsibleState.None;
         break;
+
+      case "model-info":
+        item.iconPath = new vscode.ThemeIcon("hubot");
+        item.description = element.description;
+        item.collapsibleState = vscode.TreeItemCollapsibleState.None;
+        item.contextValue = "model-info";
+        break;
     }
 
     return item;
@@ -249,6 +268,16 @@ export class PRReviewTreeProvider
       label: `${state.pr!.headBranch} → ${state.pr!.baseBranch}`,
       description: state.isLocalMode ? "Local diff" : `${state.pr!.owner}/${state.pr!.repo}`,
     });
+
+    // Cursor CLI model (only when provider is cursor-cli)
+    if (getAIProvider() === "cursor-cli") {
+      const model = getSelectedCursorModel() || "Auto";
+      items.push({
+        type: "model-info",
+        label: `Model: ${model}`,
+        description: "Cursor CLI",
+      });
+    }
 
     // No comments found message (review complete, files changed, no issues)
     const allComments = getAllComments();

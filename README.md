@@ -25,10 +25,10 @@ Download the latest `.vsix` from [GitHub Releases](https://github.com/eyalgursoy
 
 ```bash
 # Install in Cursor
-cursor --install-extension pr-review-assistant-0.15.3.vsix
+cursor --install-extension pr-review-assistant-0.15.4.vsix
 
 # Or in VS Code
-code --install-extension pr-review-assistant-0.15.3.vsix
+code --install-extension pr-review-assistant-0.15.4.vsix
 ```
 
 Replace `0.15.0` with the version you downloaded if different.
@@ -117,6 +117,7 @@ Open Settings (Cmd+,) and search for `prReview`:
 | Setting                               | Description                                      | Default      |
 | ------------------------------------- | ------------------------------------------------ | ------------ |
 | `prReview.aiProvider`                 | AI provider for code review                     | `cursor-cli` |
+| `prReview.cursorCliModel`             | Model to use with Cursor CLI (use command to pick) | `Auto`    |
 | `prReview.anthropicApiKey`           | Anthropic API key (deprecated: use Set API Key) | -            |
 | `prReview.openaiApiKey`              | OpenAI API key (deprecated: use Set API Key)     | -            |
 | `prReview.geminiApiKey`              | Google Gemini API key (deprecated: use Set API Key) | -         |
@@ -171,6 +172,8 @@ curl https://cursor.com/install -fsSL | bash
 
 Uses your existing Cursor subscription. Works with Claude, GPT-5, Gemini, and more!
 
+When using Cursor CLI, you can pick a default model: run **PR Review: Select Cursor CLI Model** from the Command Palette to choose from available models (or leave as **Auto**). The selected model is shown in the sidebar TreeView and is used when you run AI review; if the model is no longer available, the extension falls back to Auto.
+
 **Google Gemini** (Free tier available)
 
 ```json
@@ -215,14 +218,15 @@ Get a free API key at [console.groq.com](https://console.groq.com)
 
 All commands are available from the sidebar, but also via Command Palette:
 
-| Command                       | Description                      |
-| ----------------------------- | -------------------------------- |
-| `PR Review: Start Review`     | Enter PR URL and load            |
-| `PR Review: Run AI Review`    | Analyze code with AI             |
-| `PR Review: Submit Review`    | Post approved comments to GitHub |
-| `PR Review: Clear Review`     | Reset and start fresh            |
-| `PR Review: Set API Key (Secure)` | Store API key in secure storage |
-| `PR Review: Clear API Key`    | Remove stored API key            |
+| Command                               | Description                      |
+| ------------------------------------- | -------------------------------- |
+| `PR Review: Start Review`             | Enter PR URL and load            |
+| `PR Review: Run AI Review`            | Analyze code with AI             |
+| `PR Review: Submit Review`            | Post approved comments to GitHub |
+| `PR Review: Clear Review`             | Reset and start fresh            |
+| `PR Review: Select Cursor CLI Model`  | Pick model for Cursor CLI (when provider is Cursor CLI) |
+| `PR Review: Set API Key (Secure)`     | Store API key in secure storage  |
+| `PR Review: Clear API Key`            | Remove stored API key            |
 
 ## Comment Actions
 

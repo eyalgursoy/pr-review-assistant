@@ -160,6 +160,14 @@ export function getAIProvider(): AIProvider {
   return config.get<AIProvider>("aiProvider", "none");
 }
 
+/**
+ * Get the selected Cursor CLI model (only relevant when aiProvider is cursor-cli)
+ */
+export function getSelectedCursorModel(): string {
+  const config = vscode.workspace.getConfiguration("prReview");
+  return config.get<string>("cursorCliModel", "Auto");
+}
+
 const SETTINGS_KEYS: Record<string, string> = {
   anthropic: "anthropicApiKey",
   openai: "openaiApiKey",
@@ -962,6 +970,54 @@ async function findAgentBinary(): Promise<string | null> {
   return null;
 }
 
+let cachedCursorCliModels: string[] | null = null;
+
+function parseListModelsOutput(stdout: string): string[] {
+  const trimmed = stdout.trim();
+  try {
+    const json = JSON.parse(trimmed) as { models?: string[] };
+    if (Array.isArray(json.models)) return json.models;
+  } catch {
+    // not JSON, fall back to line-based
+  }
+  return trimmed
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+/**
+ * List available Cursor CLI models. Cached per extension session.
+ * Returns ["Auto", ...modelNames] or ["Auto"] if CLI not found or fetch fails.
+ */
+export async function getCursorCliModels(): Promise<string[]> {
+  if (cachedCursorCliModels) return cachedCursorCliModels;
+
+  const agentPath = await findAgentBinary();
+  if (!agentPath) {
+    cachedCursorCliModels = ["Auto"];
+    return cachedCursorCliModels;
+  }
+
+  try {
+    const { execFile } = await import("child_process");
+    const { promisify } = await import("util");
+    const execFileAsync = promisify(execFile);
+    const { stdout } = await execFileAsync(agentPath, ["--list-models"], {
+      encoding: "utf-8",
+      timeout: 15000,
+      cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? undefined,
+    });
+    const parsed = parseListModelsOutput(stdout);
+    cachedCursorCliModels = ["Auto", ...parsed];
+    return cachedCursorCliModels;
+  } catch (err) {
+    log("Failed to list Cursor CLI models", err);
+    cachedCursorCliModels = ["Auto"];
+    return cachedCursorCliModels;
+  }
+}
+
 /**
  * Check if Cursor CLI is installed and ready to use
  * Returns the path to the agent binary, or null if not ready
@@ -1015,17 +1071,24 @@ async function ensureCursorCLIInstalled(): Promise<string | null> {
 /**
  * Run agent binary with prompt from file via stdin (no shell - prevents injection)
  * Uses pipe + write to avoid ReadStream stdio issues in Electron/Node
+ * @param model - optional model name; if provided, adds --model to args
  */
 async function runAgentWithStdin(
   agentPath: string,
   promptFile: string,
-  timeoutMs: number
+  timeoutMs: number,
+  model?: string
 ): Promise<string> {
   const { spawn } = await import("child_process");
   const fs = await import("fs");
 
+  const args = ["-p", "--output-format", "text"];
+  if (model) {
+    args.push("--model", model);
+  }
+
   return new Promise((resolve, reject) => {
-    const child = spawn(agentPath, ["-p", "--output-format", "text"], {
+    const child = spawn(agentPath, args, {
       stdio: ["pipe", "pipe", "pipe"],
       cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
     });
@@ -1085,6 +1148,20 @@ async function callCursorCLI(prompt: string): Promise<string> {
 
   validateExecutablePath(agentPath);
 
+  const selectedModel = getSelectedCursorModel();
+  let effectiveModel: string | undefined;
+  if (selectedModel && selectedModel !== "Auto") {
+    const available = await getCursorCliModels();
+    if (available.includes(selectedModel)) {
+      effectiveModel = selectedModel;
+      log(`Using Cursor CLI model: ${selectedModel}`);
+    } else {
+      log(`Warning: Model "${selectedModel}" not available, using default`);
+    }
+  } else {
+    log("Using Cursor CLI default model (Auto)");
+  }
+
   const fullPrompt = `${REVIEW_SYSTEM_PROMPT}
 
 ${prompt}
@@ -1102,7 +1179,7 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no code blocks, no explana
     );
     log("Sending prompt to Cursor Agent (this may take 30-60 seconds)...");
 
-    const response = await runAgentWithStdin(agentPath, promptFile, 300000);
+    const response = await runAgentWithStdin(agentPath, promptFile, 300000, effectiveModel);
 
     const fs = await import("fs");
     fs.unlinkSync(promptFile);

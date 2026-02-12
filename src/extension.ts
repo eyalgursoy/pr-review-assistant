@@ -50,6 +50,8 @@ import {
 import {
   runAIReview,
   getAIProvider,
+  getCursorCliModels,
+  getSelectedCursorModel,
   generateCodeSuggestion,
 } from "./ai-providers";
 import { initSecretStorage, setApiKey, deleteApiKey } from "./secrets";
@@ -524,6 +526,29 @@ function registerCommands(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("prReview.showLog", () => {
       showLog();
+    })
+  );
+
+  // Select Cursor CLI Model (only when provider is cursor-cli)
+  context.subscriptions.push(
+    vscode.commands.registerCommand("prReview.selectCursorModel", async () => {
+      if (getAIProvider() !== "cursor-cli") {
+        await vscode.window.showInformationMessage(
+          "Cursor CLI model selection only applies when AI provider is Cursor CLI. Change 'prReview.aiProvider' to 'Cursor CLI' first."
+        );
+        return;
+      }
+      const models = await getCursorCliModels();
+      const current = getSelectedCursorModel() || "Auto";
+      const picked = await vscode.window.showQuickPick(
+        models.map((m) => ({ label: m, description: m === current ? "Current" : undefined })),
+        { placeHolder: "Select Cursor CLI model", title: "PR Review: Cursor CLI Model" }
+      );
+      if (picked) {
+        const config = vscode.workspace.getConfiguration("prReview");
+        await config.update("cursorCliModel", picked.label, vscode.ConfigurationTarget.Global);
+        await vscode.window.showInformationMessage(`Cursor CLI model set to: ${picked.label}`);
+      }
     })
   );
 
