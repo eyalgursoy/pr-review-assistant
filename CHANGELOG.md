@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Cursor CLI model selection**: When AI provider is Cursor CLI, you can choose a default model via the `PR Review: Select Cursor CLI Model` command (QuickPick lists models from `agent --list-models`). The selected model is shown in the sidebar TreeView and is passed to the agent; if the model is no longer available, the extension falls back to Auto. Setting: `prReview.cursorCliModel` (default: `Auto`).
+- **Cursor CLI model selection**: When AI provider is Cursor CLI, you can choose a default model via the `PR Review: Select Cursor CLI Model` command (QuickPick lists models from `agent --list-models`). The selected model is shown in the sidebar TreeView and is passed to the agent; if the model is no longer available, the extension falls back to Auto. Setting: `prReview.aiProviderCursorModel` (default: `Auto`).
+
+### Changed
+
+- **Cursor CLI model setting UI**: Model setting now appears only when AI provider is Cursor CLI (conditional schema), is positioned right after AI Provider (`prReview.aiProviderCursorModel`), and is a dropdown (enum) instead of a text box. Run the command for the full dynamic model list.
 - `npm run release` script to tag and push for GitHub releases
 
 ### Fixed

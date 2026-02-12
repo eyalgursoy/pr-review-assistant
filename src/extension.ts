@@ -546,7 +546,7 @@ function registerCommands(context: vscode.ExtensionContext) {
       );
       if (picked) {
         const config = vscode.workspace.getConfiguration("prReview");
-        await config.update("cursorCliModel", picked.label, vscode.ConfigurationTarget.Global);
+        await config.update("aiProviderCursorModel", picked.label, vscode.ConfigurationTarget.Global);
         await vscode.window.showInformationMessage(`Cursor CLI model set to: ${picked.label}`);
       }
     })

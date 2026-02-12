@@ -25,10 +25,10 @@ Download the latest `.vsix` from [GitHub Releases](https://github.com/eyalgursoy
 
 ```bash
 # Install in Cursor
-cursor --install-extension pr-review-assistant-0.15.4.vsix
+cursor --install-extension pr-review-assistant-0.15.5.vsix
 
 # Or in VS Code
-code --install-extension pr-review-assistant-0.15.4.vsix
+code --install-extension pr-review-assistant-0.15.5.vsix
 ```
 
 Replace `0.15.0` with the version you downloaded if different.
@@ -117,7 +117,7 @@ Open Settings (Cmd+,) and search for `prReview`:
 | Setting                               | Description                                      | Default      |
 | ------------------------------------- | ------------------------------------------------ | ------------ |
 | `prReview.aiProvider`                 | AI provider for code review                     | `cursor-cli` |
-| `prReview.cursorCliModel`             | Model to use with Cursor CLI (use command to pick) | `Auto`    |
+| `prReview.aiProviderCursorModel`     | Cursor CLI model (only when provider is Cursor CLI; dropdown). Run command for full list. | `Auto` |
 | `prReview.anthropicApiKey`           | Anthropic API key (deprecated: use Set API Key) | -            |
 | `prReview.openaiApiKey`              | OpenAI API key (deprecated: use Set API Key)     | -            |
 | `prReview.geminiApiKey`              | Google Gemini API key (deprecated: use Set API Key) | -         |

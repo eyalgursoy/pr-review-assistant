@@ -70,6 +70,7 @@ export class PRReviewTreeProvider
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (
         e.affectsConfiguration("prReview.cursorCliModel") ||
+        e.affectsConfiguration("prReview.aiProviderCursorModel") ||
         e.affectsConfiguration("prReview.aiProvider")
       ) {
         this.refresh();

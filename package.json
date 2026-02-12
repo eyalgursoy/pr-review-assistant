@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.15.4",
+  "version": "0.15.5",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -316,9 +316,9 @@
             "Manual"
           ],
           "default": "cursor-cli",
-          "description": "AI provider for code review. Cursor CLI uses your Cursor subscription!",
+          "description": "AI provider for code review. Cursor CLI uses your Cursor subscription! When Cursor CLI is selected, run 'PR Review: Select Cursor CLI Model' from the Command Palette to choose a model (dynamic list).",
           "enumDescriptions": [
-            "Uses Cursor Agent CLI - no API key needed! Requires: curl https://cursor.com/install -fsSL | bash",
+            "Uses Cursor Agent CLI - no API key needed! Run 'PR Review: Select Cursor CLI Model' to pick a model.",
             "Google Gemini 2.5 Flash - free tier available at ai.google.dev",
             "Anthropic Claude - requires API key from console.anthropic.com",
             "OpenAI GPT-4o - requires API key from platform.openai.com",
@@ -327,10 +327,11 @@
             "Paste AI output manually"
           ]
         },
-        "prReview.cursorCliModel": {
+        "prReview.aiProviderCursorModel": {
           "type": "string",
+          "enum": ["Auto", "Claude 4.5 Sonnet", "Claude 4.6 Opus", "Composer 1.5", "Gemini 3 Flash", "Gemini 3 Pro", "GPT-5.2", "GPT-5.3 Codex"],
           "default": "Auto",
-          "description": "Model to use with Cursor CLI. Use 'PR Review: Select Cursor CLI Model' command to choose from available models."
+          "description": "Model to use with Cursor CLI (only applies when AI provider is Cursor CLI). Run 'PR Review: Select Cursor CLI Model' for the full dynamic list."
         },
         "prReview.anthropicApiKey": {
           "type": "string",

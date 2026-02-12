@@ -162,9 +162,12 @@ export function getAIProvider(): AIProvider {
 
 /**
  * Get the selected Cursor CLI model (only relevant when aiProvider is cursor-cli)
+ * Reads aiProviderCursorModel (shown in Settings when Cursor CLI) with fallback to cursorCliModel.
  */
 export function getSelectedCursorModel(): string {
   const config = vscode.workspace.getConfiguration("prReview");
+  const fromNew = config.get<string>("aiProviderCursorModel");
+  if (fromNew !== undefined && fromNew !== "") return fromNew;
   return config.get<string>("cursorCliModel", "Auto");
 }
 
