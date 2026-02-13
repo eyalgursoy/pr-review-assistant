@@ -264,7 +264,7 @@ async function checkPendingRestoreOnActivation(): Promise<void> {
   }
 }
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
   extensionContext = context;
 
   // Initialize logger first
@@ -273,9 +273,6 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Initialize secure storage for API keys
   initSecretStorage(context);
-
-  // Check for pending restore (user closed IDE without clearing review)
-  checkPendingRestoreOnActivation();
 
   // Create tree view provider
   treeProvider = new PRReviewTreeProvider();
@@ -365,6 +362,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register commands
   registerCommands(context);
+
+  // Await pending restore so stack is consistent before activation returns
+  await checkPendingRestoreOnActivation();
 }
 
 function registerCommands(context: vscode.ExtensionContext) {

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wrap GitHub CLI JSON.parse in try/catch for fetchPRInfo, fetchChangedFiles, approvePR, and submitReviewComments; show user-facing errors instead of raw parse errors when gh returns non-JSON.
 - Fallback AI response parsing now includes endLine and codeSnippet on comments so they match the schema path and UI/GitHub submission behave consistently.
 - Comment thread body now shows user-edited text (editedText) when present, sanitized for safe display; fixes thread not updating after Save.
+- Activation now awaits the pending restore prompt so the restore stack is consistent before other code runs; avoids races when user clicks Restore and then uses the extension.
 
 ### Added
 
