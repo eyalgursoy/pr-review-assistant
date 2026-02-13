@@ -13,6 +13,7 @@ import {
   validateGitPath,
   writeSecureTempFile,
 } from "./shell-utils";
+import { log } from "./logger";
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -78,7 +79,15 @@ export async function fetchPRInfo(
     "number,title,headRefName,baseRefName,url",
   ], { cwd });
 
-  const data = JSON.parse(stdout);
+  let data: { number: number; title: string; headRefName: string; baseRefName: string; url: string };
+  try {
+    data = JSON.parse(stdout);
+  } catch (e) {
+    log(`fetchPRInfo gh stdout (truncated): ${stdout.substring(0, 500)}`);
+    throw new Error(
+      "Failed to load PR information. Check that the PR exists and you have access (gh auth status)."
+    );
+  }
 
   return {
     number: data.number,
@@ -114,15 +123,29 @@ export async function fetchChangedFiles(
     "files",
   ], { cwd });
 
-  const data = JSON.parse(stdout);
+  let data: { files?: Array<{ path: string; status?: string; additions?: number; deletions?: number }> };
+  try {
+    data = JSON.parse(stdout);
+  } catch (e) {
+    log(`fetchChangedFiles gh stdout (truncated): ${stdout.substring(0, 500)}`);
+    throw new Error("Failed to load PR file list. Check that the PR exists and you have access.");
+  }
+  if (!data.files || !Array.isArray(data.files)) {
+    throw new Error("Failed to load PR file list. GitHub returned an unexpected response.");
+  }
 
-  return data.files.map((f: { path: string; status?: string; additions?: number; deletions?: number }) => ({
-    path: f.path,
-    status: f.status?.toLowerCase() || "modified",
-    additions: f.additions || 0,
-    deletions: f.deletions || 0,
-    comments: [],
-  }));
+  return data.files.map((f): ChangedFile => {
+    const raw = f.status?.toLowerCase() || "modified";
+    const status =
+      raw === "added" || raw === "deleted" || raw === "renamed" ? raw : "modified";
+    return {
+      path: f.path,
+      status,
+      additions: f.additions || 0,
+      deletions: f.deletions || 0,
+      comments: [],
+    };
+  });
 }
 
 /**
@@ -288,7 +311,16 @@ export async function approvePR(
       tempFile,
     ], { cwd });
 
-    const response = JSON.parse(stdout);
+    let response: { html_url?: string };
+    try {
+      response = JSON.parse(stdout);
+    } catch {
+      log(`approvePR gh stdout (truncated): ${stdout.substring(0, 500)}`);
+      return {
+        success: false,
+        message: "GitHub returned an unexpected response. Check the PR and try again.",
+      };
+    }
 
     return {
       success: true,
@@ -363,7 +395,16 @@ export async function submitReviewComments(
       tempFile,
     ], { cwd });
 
-    const response = JSON.parse(stdout);
+    let response: { html_url?: string };
+    try {
+      response = JSON.parse(stdout);
+    } catch {
+      log(`submitReviewComments gh stdout (truncated): ${stdout.substring(0, 500)}`);
+      return {
+        success: false,
+        message: "GitHub returned an unexpected response. Check the PR and try again.",
+      };
+    }
 
     return {
       success: true,

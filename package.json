@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.15.10",
+  "version": "0.15.11",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
