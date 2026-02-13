@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sanitize AI/user content in comment details modal, CodeLens hover, and tree view tooltip to prevent XSS (`sanitizeMarkdownForDisplay` used in extension, codelens, tree-view).
 - Validate custom rules path: reject `prReview.customRulesPath` that escapes the workspace; fall back to `.pr-review-rules.json` and log a warning.
 
+### Fixed
+
+- Validate comment file path before opening: goToComment, fixInChat, generateSuggestionForComment, and viewDiffForComment now use `validateGitPath` so AI-origin paths that escape the workspace are rejected with a warning.
+
 ### Added
 
 - **Cursor CLI model selection**: When AI provider is Cursor CLI, you can choose a default model via the `PR Review: Select Cursor CLI Model` command (QuickPick lists models from `agent --list-models`). The selected model is shown in the sidebar TreeView and is passed to the agent; if the model is no longer available, the extension falls back to Auto. Setting: `prReview.aiProviderCursorModel` (default: `Auto`).

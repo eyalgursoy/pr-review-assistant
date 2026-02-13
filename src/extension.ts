@@ -55,7 +55,7 @@ import {
   generateCodeSuggestion,
 } from "./ai-providers";
 import { initSecretStorage, setApiKey, deleteApiKey } from "./secrets";
-import { writeSecureTempFile } from "./shell-utils";
+import { writeSecureTempFile, validateGitPath } from "./shell-utils";
 import { sanitizeMarkdownForDisplay } from "./markdown-utils";
 import { buildReviewPrompt } from "./review-template";
 import {
@@ -84,6 +84,19 @@ import {
 } from "./git-utils";
 
 const RESTORE_STACK_KEY = "prReview.restoreStack";
+
+/**
+ * Resolve and validate comment file path; returns null if path escapes workspace.
+ */
+function resolveCommentFilePath(comment: ReviewComment): string | null {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) return null;
+  try {
+    return validateGitPath(comment.file, workspaceFolder.uri.fsPath);
+  } catch {
+    return null;
+  }
+}
 
 let treeProvider: PRReviewTreeProvider;
 let treeView: vscode.TreeView<unknown>;
@@ -1093,8 +1106,13 @@ async function fixInChat(comment: ReviewComment) {
     vscode.window.showWarningMessage("No workspace folder open");
     return;
   }
+  const safePath = resolveCommentFilePath(comment);
+  if (!safePath) {
+    vscode.window.showWarningMessage("Invalid or unsafe file path for this comment.");
+    return;
+  }
 
-  const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, comment.file);
+  const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, safePath);
   let codeSnippet = "";
 
   try {
@@ -1106,12 +1124,12 @@ async function fixInChat(comment: ReviewComment) {
     const end = Math.min(doc.lineCount, lineIdx + 4);
     codeSnippet = doc.getText(new vscode.Range(start, 0, end, 0));
   } catch {
-    codeSnippet = `File: ${comment.file}, Line: ${comment.line}`;
+    codeSnippet = `File: ${safePath}, Line: ${comment.line}`;
   }
 
   const context = `Fix this code review issue:
 
-**File:** ${comment.file}
+**File:** ${safePath}
 **Line:** ${comment.line}
 
 **Issue:** ${comment.issue}
@@ -1156,8 +1174,13 @@ async function generateSuggestionForComment(comment: ReviewComment) {
     vscode.window.showWarningMessage("No workspace folder open");
     return;
   }
+  const safePath = resolveCommentFilePath(comment);
+  if (!safePath) {
+    vscode.window.showWarningMessage("Invalid or unsafe file path for this comment.");
+    return;
+  }
 
-  const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, comment.file);
+  const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, safePath);
 
   try {
     const doc = await vscode.workspace.openTextDocument(fileUri);
@@ -1201,15 +1224,20 @@ async function viewDiffForComment(comment: ReviewComment) {
     vscode.window.showWarningMessage("No workspace folder open");
     return;
   }
+  const safePath = resolveCommentFilePath(comment);
+  if (!safePath) {
+    vscode.window.showWarningMessage("Invalid or unsafe file path for this comment.");
+    return;
+  }
 
   const baseBranch = state.pr?.baseBranch || "main";
-  const newUri = vscode.Uri.joinPath(workspaceFolder.uri, comment.file);
+  const newUri = vscode.Uri.joinPath(workspaceFolder.uri, safePath);
 
   try {
-    const oldContent = await getFileAtRevision(comment.file, baseBranch);
+    const oldContent = await getFileAtRevision(safePath, baseBranch);
 
     const path = await import("path");
-    const basename = path.basename(comment.file);
+    const basename = path.basename(safePath);
     const tempFile = await writeSecureTempFile(
       `pr-review-old-${basename}`,
       "",
@@ -1217,7 +1245,7 @@ async function viewDiffForComment(comment: ReviewComment) {
     );
     const oldUri = vscode.Uri.file(tempFile);
 
-    await vscode.commands.executeCommand("vscode.diff", oldUri, newUri, `${comment.file} (${baseBranch} vs current)`);
+    await vscode.commands.executeCommand("vscode.diff", oldUri, newUri, `${safePath} (${baseBranch} vs current)`);
 
     // Clean up temp file after a delay (diff editor may still be reading it)
     setTimeout(async () => {
@@ -1241,7 +1269,13 @@ async function goToComment(comment: ReviewComment) {
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   if (!workspaceFolder) return;
 
-  const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, comment.file);
+  const safePath = resolveCommentFilePath(comment);
+  if (!safePath) {
+    vscode.window.showWarningMessage("Invalid or unsafe file path for this comment.");
+    return;
+  }
+
+  const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, safePath);
 
   try {
     const doc = await vscode.workspace.openTextDocument(fileUri);
@@ -1253,7 +1287,7 @@ async function goToComment(comment: ReviewComment) {
     editor.selection = new vscode.Selection(range.start, range.start);
     editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
   } catch {
-    vscode.window.showWarningMessage(`Could not open file: ${comment.file}`);
+    vscode.window.showWarningMessage(`Could not open file: ${safePath}`);
   }
 }
 
