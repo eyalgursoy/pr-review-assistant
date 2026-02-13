@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - Sanitize AI/user content in comment details modal, CodeLens hover, and tree view tooltip to prevent XSS (`sanitizeMarkdownForDisplay` used in extension, codelens, tree-view).
+- Validate custom rules path: reject `prReview.customRulesPath` that escapes the workspace; fall back to `.pr-review-rules.json` and log a warning.
 
 ### Added
 

@@ -33,11 +33,30 @@ export async function loadCustomRules(
   const config = vscode.workspace.getConfiguration("prReview");
   const customPath = config.get<string>("customRulesPath");
 
-  const rulesPath = customPath
-    ? path.isAbsolute(customPath)
-      ? customPath
-      : path.join(workspaceRoot, customPath)
-    : path.join(workspaceRoot, ".pr-review-rules.json");
+  const defaultPath = path.join(workspaceRoot, ".pr-review-rules.json");
+  let rulesPath: string;
+
+  if (customPath?.trim()) {
+    const resolvedPath = path.normalize(
+      path.isAbsolute(customPath)
+        ? path.resolve(customPath)
+        : path.resolve(workspaceRoot, customPath)
+    );
+    const resolvedRoot = path.normalize(path.resolve(workspaceRoot));
+    const isUnderRoot =
+      resolvedPath === resolvedRoot ||
+      resolvedPath.startsWith(resolvedRoot + path.sep);
+    if (!isUnderRoot) {
+      log(
+        `Custom rules path escapes workspace (${customPath}), using default .pr-review-rules.json`
+      );
+      rulesPath = defaultPath;
+    } else {
+      rulesPath = resolvedPath;
+    }
+  } else {
+    rulesPath = defaultPath;
+  }
 
   const rulesUri = vscode.Uri.file(rulesPath);
 
