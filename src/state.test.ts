@@ -83,6 +83,7 @@ describe("state", () => {
         headBranch: "feature",
         baseBranch: "main",
         url: "https://github.com/octocat/hello-world/pull/123",
+        host: "github",
       };
 
       setPRInfo(pr);
@@ -350,6 +351,7 @@ describe("state", () => {
         headBranch: "feature",
         baseBranch: "main",
         url: "http://test",
+        host: "github",
       });
       setFiles([{ path: "test.ts", status: "modified", additions: 1, deletions: 0, comments: [] }]);
       setDiff("diff");

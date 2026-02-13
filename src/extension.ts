@@ -36,17 +36,12 @@ import {
 } from "./state";
 import {
   parsePRUrl,
-  checkGhCli,
-  fetchPRInfo,
-  fetchChangedFiles,
-  fetchPRDiff,
-  submitReviewComments,
-  approvePR,
   getLocalBranchInfo,
   fetchLocalDiff,
   parseDiffToChangedFiles,
   getFileAtRevision,
 } from "./github";
+import { getProvider } from "./providers";
 import {
   runAIReview,
   getAIProvider,
@@ -582,35 +577,15 @@ function registerCommands(context: vscode.ExtensionContext) {
 }
 
 /**
- * Start a new review - prompt for PR URL
+ * Start a new review - prompt for PR/MR URL (GitHub, GitLab, Bitbucket)
  */
 async function startReview() {
-  // Check gh CLI first
-  const ghStatus = await checkGhCli();
-  if (!ghStatus.available) {
-    const install = await vscode.window.showErrorMessage(
-      ghStatus.error || "GitHub CLI not available",
-      "Install GitHub CLI"
-    );
-    if (install) {
-      vscode.env.openExternal(vscode.Uri.parse("https://cli.github.com/"));
-    }
-    return;
-  }
-  if (!ghStatus.authenticated) {
-    vscode.window.showErrorMessage(
-      ghStatus.error || "GitHub CLI not authenticated"
-    );
-    return;
-  }
-
-  // Prompt for PR URL
   const prUrl = await vscode.window.showInputBox({
-    prompt: "Enter GitHub PR URL",
-    placeHolder: "https://github.com/owner/repo/pull/123",
+    prompt: "Enter PR or MR URL",
+    placeHolder: "https://github.com/owner/repo/pull/123 or GitLab/Bitbucket URL",
     validateInput: (value) => {
       if (!value) return "PR URL is required";
-      if (!parsePRUrl(value)) return "Invalid PR URL format";
+      if (!parsePRUrl(value)) return "Invalid or unsupported URL. Use GitHub, GitLab, or Bitbucket.";
       return null;
     },
   });
@@ -619,25 +594,46 @@ async function startReview() {
 
   const parsed = parsePRUrl(prUrl);
   if (!parsed) {
-    vscode.window.showErrorMessage("Invalid PR URL");
+    vscode.window.showErrorMessage(
+      "Unsupported URL. Use a GitHub PR, GitLab MR, or Bitbucket PR URL."
+    );
+    return;
+  }
+
+  const provider = getProvider(parsed.host);
+  const authStatus = await provider.checkAuth();
+  if (!authStatus.authenticated) {
+    vscode.window.showErrorMessage(
+      authStatus.error || `${parsed.host} not authenticated`
+    );
+    if (parsed.host === "github" && authStatus.available) {
+      const install = await vscode.window.showErrorMessage(
+        authStatus.error ?? "GitHub CLI not authenticated",
+        "Install GitHub CLI"
+      );
+      if (install) {
+        vscode.env.openExternal(vscode.Uri.parse("https://cli.github.com/"));
+      }
+    }
     return;
   }
 
   const hadActiveReview = !!getState().pr;
 
-  // Reset and load new PR
   resetState();
   resetProgress();
   startProgress();
   setLoading(true);
 
   try {
-    // Fetch PR info
     updateStage("fetching-pr", "Fetching PR information...");
-    const prInfo = await fetchPRInfo(parsed.owner, parsed.repo, parsed.number);
+    const prInfo = await provider.fetchPRInfo(
+      parsed.owner,
+      parsed.repo,
+      parsed.number
+    );
     setPRInfo(prInfo);
 
-    // Checkout PR branch for accurate line numbers
     updateStage("fetching-pr", "Checking out PR branch...");
     const proceed = await ensureBranchForReview(
       prInfo.headBranch,
@@ -649,13 +645,15 @@ async function startReview() {
       return;
     }
 
-    // Fetch changed files
     updateStage("loading-diff", "Loading changed files...");
     await loadPRFiles(parsed.owner, parsed.repo, parsed.number);
 
-    // Fetch diff
     updateStage("loading-diff", "Loading diff...", `${prInfo.title}`);
-    const diff = await fetchPRDiff(parsed.owner, parsed.repo, parsed.number);
+    const diff = await provider.fetchPRDiff(
+      parsed.owner,
+      parsed.repo,
+      parsed.number
+    );
     setDiff(diff);
 
     setLoading(false);
@@ -737,10 +735,13 @@ async function reviewLocalChanges() {
 }
 
 /**
- * Load PR files
+ * Load PR/MR files (uses provider for current pr.host)
  */
 async function loadPRFiles(owner: string, repo: string, prNumber: number) {
-  const files = await fetchChangedFiles(owner, repo, prNumber);
+  const state = getState();
+  if (!state.pr) return;
+  const provider = getProvider(state.pr.host);
+  const files = await provider.fetchChangedFiles(owner, repo, prNumber);
   setFiles(files);
 }
 
@@ -953,6 +954,7 @@ async function submitReview() {
 
   try {
     const summary = getSummary();
+    const provider = getProvider(state.pr!.host);
     const result = await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
@@ -960,12 +962,12 @@ async function submitReview() {
         cancellable: false,
       },
       async () => {
-        return await submitReviewComments(state.pr!, approved, summary);
+        return await provider.submitReviewComments(state.pr!, approved, summary);
       }
     );
 
     if (result.success) {
-      const action = result.url ? "View on GitHub" : undefined;
+      const action = result.url ? "View online" : undefined;
       const selected = await vscode.window.showInformationMessage(
         result.message,
         ...(action ? [action] : [])
@@ -1020,21 +1022,30 @@ async function approvePRFlow() {
   if (confirm !== "Approve") return;
 
   try {
+    const provider = getProvider(state.pr!.host);
+    const approveFn = provider.approvePR;
+    if (!approveFn) {
+      vscode.window.showInformationMessage(
+        "Approve is not supported for this host."
+      );
+      return;
+    }
+
     const result = await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
         title: "Approving PR...",
         cancellable: false,
       },
-      async () => approvePR(state.pr!, body || defaultBody)
+      async () => approveFn(state.pr!, body || defaultBody)
     );
 
     if (result.success) {
       const selected = await vscode.window.showInformationMessage(
         result.message,
-        ...(result.url ? ["View on GitHub"] : [])
+        ...(result.url ? ["View online"] : [])
       );
-      if (selected === "View on GitHub" && result.url) {
+      if (selected === "View online" && result.url) {
         vscode.env.openExternal(vscode.Uri.parse(result.url));
       }
     } else {
@@ -1321,6 +1332,8 @@ const API_KEY_PROVIDERS = [
   { id: "openai", label: "OpenAI GPT-4" },
   { id: "gemini", label: "Google Gemini" },
   { id: "groq", label: "Groq" },
+  { id: "gitlab", label: "GitLab (MR token)" },
+  { id: "bitbucket", label: "Bitbucket (PR token)" },
 ] as const;
 
 async function setApiKeyCommand(): Promise<void> {

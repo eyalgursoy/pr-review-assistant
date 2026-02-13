@@ -9,7 +9,48 @@ import { parsePRUrl } from "./url-utils";
 describe("parsePRUrl", () => {
   it("should parse standard GitHub PR URL", () => {
     const result = parsePRUrl("https://github.com/owner/repo/pull/123");
-    expect(result).toEqual({ owner: "owner", repo: "repo", number: 123 });
+    expect(result).toEqual({
+      host: "github",
+      owner: "owner",
+      repo: "repo",
+      number: 123,
+    });
+  });
+
+  it("should parse GitLab MR URL", () => {
+    const result = parsePRUrl(
+      "https://gitlab.com/group/project/-/merge_requests/42"
+    );
+    expect(result).toEqual({
+      host: "gitlab",
+      owner: "group",
+      repo: "project",
+      number: 42,
+    });
+  });
+
+  it("should parse GitLab MR URL with subgroup", () => {
+    const result = parsePRUrl(
+      "https://gitlab.com/group/subgroup/repo/-/merge_requests/1"
+    );
+    expect(result).toEqual({
+      host: "gitlab",
+      owner: "group",
+      repo: "subgroup/repo",
+      number: 1,
+    });
+  });
+
+  it("should parse Bitbucket PR URL", () => {
+    const result = parsePRUrl(
+      "https://bitbucket.org/workspace/repo/pull-requests/99"
+    );
+    expect(result).toEqual({
+      host: "bitbucket",
+      owner: "workspace",
+      repo: "repo",
+      number: 99,
+    });
   });
 
   it("should return null for invalid URL", () => {

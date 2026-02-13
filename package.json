@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.15.14",
+  "version": "0.16.0",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -370,6 +370,28 @@
           "type": "string",
           "default": "",
           "description": "GitHub personal access token (if not using gh-cli)"
+        },
+        "prReview.gitlabUrl": {
+          "type": "string",
+          "default": "https://gitlab.com",
+          "description": "GitLab instance URL (use https://gitlab.com for GitLab.com or your self-managed URL)"
+        },
+        "prReview.gitlabToken": {
+          "type": "string",
+          "default": "",
+          "description": "GitLab personal/project access token (deprecated: use 'Set API Key' command for secure storage)",
+          "deprecationMessage": "Use the 'PR Review: Set API Key (Secure)' command and choose GitLab. Tokens in settings are stored in plain text."
+        },
+        "prReview.bitbucketToken": {
+          "type": "string",
+          "default": "",
+          "description": "Bitbucket app password or token (deprecated: use 'Set API Key' command for secure storage)",
+          "deprecationMessage": "Use the 'PR Review: Set API Key (Secure)' command and choose Bitbucket. Tokens in settings are stored in plain text."
+        },
+        "prReview.bitbucketUsername": {
+          "type": "string",
+          "default": "",
+          "description": "Bitbucket username (required for App Password auth; leave empty when using Bearer token)"
         },
         "prReview.defaultBaseBranch": {
           "type": "string",

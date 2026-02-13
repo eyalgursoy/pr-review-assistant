@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2025-02
+
+### Added
+
+- **GitLab Merge Request support**: Paste a GitLab MR URL to load, run AI review, and submit comments. Auth via Personal/Project Access Token (stored with **Set API Key (Secure)** → GitLab). Settings: `prReview.gitlabUrl` (default `https://gitlab.com`), `prReview.gitlabToken` (deprecated).
+- **Bitbucket Pull Request support**: Paste a Bitbucket PR URL to load, run AI review, and submit comments. Auth via App Password or token (stored with **Set API Key (Secure)** → Bitbucket). Setting: `prReview.bitbucketUsername` for App Password auth.
+- **Unified PR/MR flow**: Start Review accepts GitHub, GitLab, and Bitbucket URLs; provider is chosen from the URL and used for auth, fetch, and submit.
+- **Provider abstraction**: `HostType`, `PRProvider` interface, and `getProvider(host)` for GitHub, GitLab, and Bitbucket implementations.
+
+### Changed
+
+- Start Review now prompts for “PR or MR URL” and validates GitHub, GitLab, and Bitbucket URLs.
+- Submit and Approve use the provider for the current PR’s host (e.g. GitLab API for MRs).
+- Set API Key (Secure) QuickPick includes “GitLab (MR token)” and “Bitbucket (PR token)” for host tokens.
+
 ### Security
 
 - Sanitize AI/user content in comment details modal, CodeLens hover, and tree view tooltip to prevent XSS (`sanitizeMarkdownForDisplay` used in extension, codelens, tree-view).

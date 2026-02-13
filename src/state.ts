@@ -88,6 +88,7 @@ export function setLocalMode(branch: string, baseBranch: string): void {
       headBranch: branch,
       baseBranch,
       url: "",
+      host: "github",
     },
     isLocalMode: true,
     error: null,

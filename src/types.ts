@@ -44,8 +44,11 @@ export interface ReviewComment {
   editedText?: string;
 }
 
+/** Supported git hosts for PR/MR review */
+export type HostType = "github" | "gitlab" | "bitbucket";
+
 /**
- * Information about a PR
+ * Information about a PR (or MR on GitLab, PR on Bitbucket)
  */
 export interface PRInfo {
   number: number;
@@ -55,6 +58,7 @@ export interface PRInfo {
   headBranch: string;
   baseBranch: string;
   url: string;
+  host: HostType;
 }
 
 /**

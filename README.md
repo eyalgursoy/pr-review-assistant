@@ -7,10 +7,10 @@ AI-powered PR code review extension for VS Code / Cursor. Lives in the **Source 
 - **Source Control Integration**: Panel in the SCM sidebar (like GitLens)
 - **AI Code Review**: Supports Cursor CLI, Claude, GPT-4, Gemini, Groq, and more
 - **Inline Annotations**: CodeLens shows comments directly on code lines
-- **GitHub Integration**: Submit approved comments directly to PRs
+- **GitHub, GitLab & Bitbucket**: Paste a PR/MR URL to load, run AI review, and submit comments (GitHub via `gh` CLI; GitLab and Bitbucket via token)
 - **One-Click Workflow**: Start review → AI analyzes → Review comments → Submit
 - **No API Key Needed**: Use Cursor CLI with your existing Cursor subscription!
-- **Secure API Key Storage**: API keys stored in VS Code SecretStorage (OS credential manager) instead of plain text settings
+- **Secure API Key Storage**: API keys and host tokens stored in VS Code SecretStorage (OS credential manager) instead of plain text settings
 - **Project-Aware Reviews**: Automatically detects project type, languages, and frameworks for context-specific review rules
 
 ## Installation
@@ -25,17 +25,17 @@ Download the latest `.vsix` from [GitHub Releases](https://github.com/eyalgursoy
 
 ```bash
 # Install in Cursor
-cursor --install-extension pr-review-assistant-0.15.14.vsix
+cursor --install-extension pr-review-assistant-0.16.0.vsix
 
 # Or in VS Code
-code --install-extension pr-review-assistant-0.15.14.vsix
+code --install-extension pr-review-assistant-0.16.0.vsix
 ```
 
 Replace `0.15.14` with the version you downloaded if different.
 
 ### Prerequisites
 
-1. **GitHub CLI** - Required for fetching PR data and submitting comments
+1. **For GitHub PRs**: GitHub CLI (`gh`) – required for fetching PR data and submitting comments.
 
    ```bash
    # macOS
@@ -45,7 +45,11 @@ Replace `0.15.14` with the version you downloaded if different.
    gh auth login
    ```
 
-2. **Cursor CLI** (Recommended) - Uses your Cursor subscription, no API key needed!
+2. **For GitLab MRs**: GitLab Personal or Project Access Token with `api` scope. Store via **PR Review: Set API Key (Secure)** → GitLab. Create tokens at [GitLab → Settings → Access Tokens](https://gitlab.com/-/user_settings/personal_access_tokens). Self‑managed: set `prReview.gitlabUrl` in settings.
+
+3. **For Bitbucket PRs**: Bitbucket App Password or token with Repositories and Pull requests read/write. Store via **PR Review: Set API Key (Secure)** → Bitbucket. For App Password, set `prReview.bitbucketUsername` in settings.
+
+4. **Cursor CLI** (Recommended) - Uses your Cursor subscription, no API key needed!
 
    ```bash
    # Install Cursor CLI
@@ -54,7 +58,7 @@ Replace `0.15.14` with the version you downloaded if different.
 
    The extension will prompt you to install this automatically if not found.
 
-3. **Alternative AI Providers** - If not using Cursor CLI:
+5. **Alternative AI Providers** - If not using Cursor CLI:
    - Google Gemini (free tier available at ai.google.dev)
    - Groq (fast & free at console.groq.com)
    - Anthropic Claude (console.anthropic.com)
@@ -67,11 +71,11 @@ Replace `0.15.14` with the version you downloaded if different.
 1. Open the **Source Control** panel (Cmd+Shift+G)
 2. Find **PR Review Assistant** section
 3. Click **Start Review**
-4. Paste a GitHub PR URL (e.g., `https://github.com/owner/repo/pull/123`)
+4. Paste a PR or MR URL (GitHub, GitLab, or Bitbucket; e.g. `https://github.com/owner/repo/pull/123`)
 5. Click **Run AI Review** (or it runs automatically if configured)
 6. Review comments appear as CodeLens on the actual files
 7. **Approve** / **Reject** / **Edit** each comment
-8. Click **Submit PR Review** to post to GitHub
+8. Click **Submit PR Review** to post to the PR/MR
 
 ### Workflow
 
@@ -123,6 +127,10 @@ Open Settings (Cmd+,) and search for `prReview`:
 | `prReview.geminiApiKey`              | Google Gemini API key (deprecated: use Set API Key) | -         |
 | `prReview.groqApiKey`                | Groq API key (deprecated: use Set API Key)       | -            |
 | `prReview.githubAuth`                | GitHub auth method                              | `gh-cli`     |
+| `prReview.gitlabUrl`                 | GitLab instance URL (e.g. https://gitlab.com or self‑managed) | `https://gitlab.com` |
+| `prReview.gitlabToken`               | GitLab token (deprecated: use Set API Key → GitLab) | -        |
+| `prReview.bitbucketToken`            | Bitbucket token (deprecated: use Set API Key → Bitbucket) | -      |
+| `prReview.bitbucketUsername`         | Bitbucket username (for App Password auth)       | -            |
 | `prReview.autoRunAi`                 | Auto-run AI after loading PR                     | `false`      |
 | `prReview.verboseLogging`            | Log diff and AI response content (privacy: off)  | `false`      |
 | `prReview.clearRestoreStackOnDeactivate` | Clear branch restore stack on extension exit | `false`      |
@@ -136,9 +144,9 @@ Use the **Set API Key (Secure)** command instead of storing keys in settings. Ke
 
 1. Open Command Palette (Cmd+Shift+P)
 2. Run **PR Review: Set API Key (Secure)**
-3. Select your AI provider and paste your key
+3. Select your AI provider (or GitLab / Bitbucket for host tokens) and paste your key
 
-Keys stored in settings are migrated to secure storage on first use.
+Use this for AI providers (Anthropic, OpenAI, Gemini, Groq) and for GitLab and Bitbucket tokens when reviewing MRs/PRs on those hosts. Keys stored in settings are deprecated and can be migrated to secure storage via this command.
 
 ### Custom Review Rules
 

@@ -86,7 +86,7 @@ describe("PRReviewTreeProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetState.mockReturnValue({
-      pr: { number: 1, owner: "o", repo: "r", title: "PR", headBranch: "main", baseBranch: "dev", url: "" },
+      pr: { number: 1, owner: "o", repo: "r", title: "PR", headBranch: "main", baseBranch: "dev", url: "", host: "github" },
       isLocalMode: false,
       files: [],
       diff: "",
@@ -218,7 +218,7 @@ describe("PRReviewTreeProvider", () => {
 
     it("returns Changed Files section for file when state has files", () => {
       mockGetState.mockReturnValue({
-        pr: {},
+        pr: { number: 0, owner: "", repo: "", title: "", headBranch: "", baseBranch: "", url: "", host: "github" as const },
         isLocalMode: false,
         files: [makeFile("src/a.ts")],
         diff: "",
@@ -240,7 +240,7 @@ describe("PRReviewTreeProvider", () => {
 
     it("returns undefined for file when state has no files", () => {
       mockGetState.mockReturnValue({
-        pr: { number: 1, owner: "o", repo: "r", title: "T", headBranch: "main", baseBranch: "dev", url: "" },
+        pr: { number: 1, owner: "o", repo: "r", title: "T", headBranch: "main", baseBranch: "dev", url: "", host: "github" },
         isLocalMode: false,
         files: [],
         diff: "",
@@ -260,7 +260,7 @@ describe("PRReviewTreeProvider", () => {
       const comment = makeComment({ id: "c1", file: "src/foo.ts" });
       const file = makeFile("src/foo.ts", [comment]);
       mockGetState.mockReturnValue({
-        pr: {},
+        pr: { number: 0, owner: "", repo: "", title: "", headBranch: "", baseBranch: "", url: "", host: "github" as const },
         isLocalMode: false,
         files: [file],
         diff: "",
@@ -281,7 +281,7 @@ describe("PRReviewTreeProvider", () => {
 
     it("returns undefined for comment when file not found in state", () => {
       mockGetState.mockReturnValue({
-        pr: { number: 1, owner: "o", repo: "r", title: "T", headBranch: "main", baseBranch: "dev", url: "" },
+        pr: { number: 1, owner: "o", repo: "r", title: "T", headBranch: "main", baseBranch: "dev", url: "", host: "github" },
         isLocalMode: false,
         files: [],
         diff: "",

@@ -5,12 +5,14 @@
 
 import * as vscode from "vscode";
 
-const SECRET_KEYS = {
+const SECRET_KEYS: Record<string, string> = {
   anthropic: "prReview.anthropicApiKey",
   openai: "prReview.openaiApiKey",
   gemini: "prReview.geminiApiKey",
   groq: "prReview.groqApiKey",
-} as const;
+  gitlab: "prReview.gitlabToken",
+  bitbucket: "prReview.bitbucketToken",
+};
 
 let secretStorage: vscode.SecretStorage | undefined;
 
@@ -20,7 +22,7 @@ export function initSecretStorage(context: vscode.ExtensionContext): void {
 
 export async function getApiKey(provider: string): Promise<string | undefined> {
   if (!secretStorage) return undefined;
-  const key = SECRET_KEYS[provider as keyof typeof SECRET_KEYS];
+  const key = SECRET_KEYS[provider];
   if (!key) return undefined;
   return await secretStorage.get(key);
 }
@@ -30,14 +32,14 @@ export async function setApiKey(
   value: string
 ): Promise<void> {
   if (!secretStorage) return;
-  const key = SECRET_KEYS[provider as keyof typeof SECRET_KEYS];
+  const key = SECRET_KEYS[provider];
   if (!key) return;
   await secretStorage.store(key, value);
 }
 
 export async function deleteApiKey(provider: string): Promise<void> {
   if (!secretStorage) return;
-  const key = SECRET_KEYS[provider as keyof typeof SECRET_KEYS];
+  const key = SECRET_KEYS[provider];
   if (!key) return;
   await secretStorage.delete(key);
 }

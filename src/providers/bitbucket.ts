@@ -1,0 +1,318 @@
+/**
+ * Bitbucket Pull Request provider - uses REST API 2.0 with token/app password
+ */
+
+import * as vscode from "vscode";
+import type { PRInfo, ChangedFile, ReviewComment } from "../types";
+import type { PRProvider, AuthStatus, SubmitResult } from "./types";
+import { getApiKey } from "../secrets";
+
+const BITBUCKET_API_BASE = "https://api.bitbucket.org/2.0";
+
+async function getToken(): Promise<string | undefined> {
+  const fromSecret = await getApiKey("bitbucket");
+  if (fromSecret) return fromSecret;
+  return vscode.workspace
+    .getConfiguration("prReview")
+    .get<string>("bitbucketToken", "");
+}
+
+function getUsername(): string {
+  return vscode.workspace
+    .getConfiguration("prReview")
+    .get<string>("bitbucketUsername", "");
+}
+
+async function bitbucketFetch(
+  path: string,
+  token: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const username = getUsername();
+  const url = `${BITBUCKET_API_BASE}${path}`;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string>),
+  };
+
+  if (username) {
+    const auth = Buffer.from(`${username}:${token}`).toString("base64");
+    headers["Authorization"] = `Basic ${auth}`;
+  } else {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  return fetch(url, { ...options, headers });
+}
+
+function formatCommentBody(comment: ReviewComment): string {
+  const severityEmoji: Record<string, string> = {
+    critical: "🔴",
+    high: "🟠",
+    medium: "🟡",
+    low: "🟢",
+  };
+
+  let body = `**${severityEmoji[comment.severity] || "⚪"} ${comment.severity.toUpperCase()}**: ${comment.issue}`;
+
+  if (comment.suggestion) {
+    body += `\n\n**Suggestion:** ${comment.suggestion}`;
+  }
+
+  if (comment.codeSnippet) {
+    body += `\n\n\`\`\`suggestion\n${comment.codeSnippet}\n\`\`\``;
+  }
+
+  return body;
+}
+
+export const bitbucketProvider: PRProvider = {
+  host: "bitbucket",
+
+  async checkAuth(): Promise<AuthStatus> {
+    const token = await getToken();
+    if (!token || !token.trim()) {
+      return {
+        available: true,
+        authenticated: false,
+        error:
+          "Bitbucket token not set. Use PR Review: Set API Key (Secure) and choose Bitbucket.",
+      };
+    }
+
+    const res = await bitbucketFetch("/user", token);
+
+    if (res.ok) {
+      return { available: true, authenticated: true };
+    }
+
+    if (res.status === 401) {
+      return {
+        available: true,
+        authenticated: false,
+        error:
+          "Bitbucket token invalid or expired. For App Password, set prReview.bitbucketUsername.",
+      };
+    }
+
+    return {
+      available: true,
+      authenticated: false,
+      error: `Bitbucket API: ${res.status} ${res.statusText}`,
+    };
+  },
+
+  async fetchPRInfo(
+    owner: string,
+    repo: string,
+    number: number
+  ): Promise<PRInfo> {
+    const token = await getToken();
+    if (!token) throw new Error("Bitbucket token not set. Use Set API Key (Secure).");
+
+    const res = await bitbucketFetch(
+      `/repositories/${owner}/${repo}/pullrequests/${number}`,
+      token
+    );
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(
+        res.status === 404
+          ? "Pull request not found. Check URL and token permissions."
+          : `Bitbucket API: ${res.status} ${text.slice(0, 200)}`
+      );
+    }
+
+    const data = (await res.json()) as {
+      id: number;
+      title: string;
+      source: { branch: { name: string } };
+      destination: { branch: { name: string } };
+      links: { html: { href: string } };
+    };
+
+    return {
+      number: data.id,
+      owner,
+      repo,
+      title: data.title,
+      headBranch: data.source.branch.name,
+      baseBranch: data.destination.branch.name,
+      url: data.links.html.href,
+      host: "bitbucket",
+    };
+  },
+
+  async fetchChangedFiles(
+    owner: string,
+    repo: string,
+    number: number
+  ): Promise<ChangedFile[]> {
+    const token = await getToken();
+    if (!token) throw new Error("Bitbucket token not set.");
+
+    const res = await bitbucketFetch(
+      `/repositories/${owner}/${repo}/pullrequests/${number}/diffstat`,
+      token
+    );
+
+    if (!res.ok) {
+      throw new Error(`Bitbucket API: ${res.status} ${res.statusText}`);
+    }
+
+    const data = (await res.json()) as {
+      values?: Array<{
+        new?: { path: string };
+        old?: { path: string };
+        status?: string;
+        lines_added?: number;
+        lines_removed?: number;
+      }>;
+    };
+
+    const values = data.values || [];
+
+    return values.map(
+      (v): ChangedFile => {
+        const path = v.new?.path ?? v.old?.path ?? "";
+        const raw = (v.status || "modified").toLowerCase();
+        const status: ChangedFile["status"] =
+          raw === "added" || raw === "new"
+            ? "added"
+            : raw === "removed" || raw === "deleted"
+              ? "deleted"
+              : raw === "renamed"
+                ? "renamed"
+                : "modified";
+
+        return {
+          path,
+          status,
+          additions: v.lines_added ?? 0,
+          deletions: v.lines_removed ?? 0,
+          comments: [],
+        };
+      }
+    );
+  },
+
+  async fetchPRDiff(
+    owner: string,
+    repo: string,
+    number: number
+  ): Promise<string> {
+    const token = await getToken();
+    if (!token) throw new Error("Bitbucket token not set.");
+
+    const res = await bitbucketFetch(
+      `/repositories/${owner}/${repo}/pullrequests/${number}/diff`,
+      token
+    );
+
+    if (!res.ok) {
+      throw new Error(`Bitbucket API: ${res.status} ${res.statusText}`);
+    }
+
+    return res.text();
+  },
+
+  async submitReviewComments(
+    pr: PRInfo,
+    comments: ReviewComment[],
+    _summary?: string | null
+  ): Promise<SubmitResult> {
+    const token = await getToken();
+    if (!token) {
+      return { success: false, message: "Bitbucket token not set." };
+    }
+
+    if (comments.length === 0) {
+      return { success: false, message: "No comments to submit" };
+    }
+
+    let successCount = 0;
+    let lastError = "";
+
+    for (const c of comments) {
+      const body = c.editedText || formatCommentBody(c);
+
+      const anchor: Record<string, unknown> = {
+        path: c.file,
+        line: c.line,
+        line_type: c.side === "LEFT" ? "removed" : "added",
+      };
+
+      const res = await bitbucketFetch(
+        `/repositories/${pr.owner}/${pr.repo}/pullrequests/${pr.number}/comments`,
+        token,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            content: { raw: body },
+            anchor,
+          }),
+        }
+      );
+
+      if (res.ok) {
+        successCount++;
+      } else {
+        const errText = await res.text();
+        lastError = `${c.file}:${c.line} - ${res.status} ${errText.slice(0, 100)}`;
+      }
+    }
+
+    if (successCount === comments.length) {
+      return {
+        success: true,
+        message: `Submitted ${comments.length} comment(s) to PR #${pr.number}`,
+        url: pr.url,
+      };
+    }
+
+    if (successCount > 0) {
+      return {
+        success: false,
+        message: `Submitted ${successCount}/${comments.length} comments. Last error: ${lastError}`,
+        url: pr.url,
+      };
+    }
+
+    return {
+      success: false,
+      message: `Failed to submit comments: ${lastError}`,
+    };
+  },
+
+  async approvePR(
+    pr: PRInfo,
+    _body?: string
+  ): Promise<SubmitResult> {
+    const token = await getToken();
+    if (!token) {
+      return { success: false, message: "Bitbucket token not set." };
+    }
+
+    const res = await bitbucketFetch(
+      `/repositories/${pr.owner}/${pr.repo}/pullrequests/${pr.number}/approve`,
+      token,
+      { method: "POST" }
+    );
+
+    if (res.ok) {
+      return {
+        success: true,
+        message: `PR #${pr.number} approved`,
+        url: pr.url,
+      };
+    }
+
+    const text = await res.text();
+    return {
+      success: false,
+      message: `Failed to approve: ${res.status} ${text.slice(0, 150)}`,
+    };
+  },
+};

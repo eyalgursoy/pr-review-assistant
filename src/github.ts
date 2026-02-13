@@ -1,175 +1,79 @@
 /**
- * GitHub integration - PR info fetching and comment submission
+ * GitHub integration - PR info fetching and comment submission.
+ * Thin facade over providers; legacy exports delegate to GitHub provider.
  */
 
-import { promisify } from "util";
-import * as fs from "fs";
 import * as vscode from "vscode";
 import type { PRInfo, ChangedFile, ReviewComment } from "./types";
+import { getProvider } from "./providers";
 import {
   runCommand,
-  validateOwnerRepo,
   validateBranchName,
   validateGitPath,
-  writeSecureTempFile,
 } from "./shell-utils";
-import { log } from "./logger";
-
-const unlinkAsync = promisify(fs.unlink);
-
-function getWorkspacePath(): string | undefined {
-  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-}
 
 export { parsePRUrl } from "./url-utils";
+export type { ParsedPRUrl } from "./url-utils";
 
-/**
- * Check if gh CLI is available and authenticated
- */
+/** Check if gh CLI is available and authenticated (GitHub provider). */
 export async function checkGhCli(): Promise<{
   available: boolean;
   authenticated: boolean;
   error?: string;
 }> {
-  const cwd = getWorkspacePath();
-
-  try {
-    await runCommand("gh", ["--version"], { cwd });
-  } catch {
-    return {
-      available: false,
-      authenticated: false,
-      error:
-        "GitHub CLI (gh) not installed. Install from https://cli.github.com/",
-    };
-  }
-
-  try {
-    await runCommand("gh", ["auth", "status"], { cwd });
-    return { available: true, authenticated: true };
-  } catch {
-    return {
-      available: true,
-      authenticated: false,
-      error: "GitHub CLI not authenticated. Run: gh auth login",
-    };
-  }
+  return getProvider("github").checkAuth();
 }
 
-/**
- * Fetch PR information using gh CLI
- */
+/** Fetch PR information (GitHub provider). */
 export async function fetchPRInfo(
   owner: string,
   repo: string,
   prNumber: number
 ): Promise<PRInfo> {
-  validateOwnerRepo(owner, "owner");
-  validateOwnerRepo(repo, "repo");
-
-  const cwd = getWorkspacePath();
-
-  const { stdout } = await runCommand("gh", [
-    "pr",
-    "view",
-    String(prNumber),
-    "--repo",
-    `${owner}/${repo}`,
-    "--json",
-    "number,title,headRefName,baseRefName,url",
-  ], { cwd });
-
-  let data: { number: number; title: string; headRefName: string; baseRefName: string; url: string };
-  try {
-    data = JSON.parse(stdout);
-  } catch (e) {
-    log(`fetchPRInfo gh stdout (truncated): ${stdout.substring(0, 500)}`);
-    throw new Error(
-      "Failed to load PR information. Check that the PR exists and you have access (gh auth status)."
-    );
-  }
-
-  return {
-    number: data.number,
-    owner,
-    repo,
-    title: data.title,
-    headBranch: data.headRefName,
-    baseBranch: data.baseRefName,
-    url: data.url,
-  };
+  return getProvider("github").fetchPRInfo(owner, repo, prNumber);
 }
 
-/**
- * Fetch list of changed files in PR
- */
+/** Fetch list of changed files in PR (GitHub provider). */
 export async function fetchChangedFiles(
   owner: string,
   repo: string,
   prNumber: number
 ): Promise<ChangedFile[]> {
-  validateOwnerRepo(owner, "owner");
-  validateOwnerRepo(repo, "repo");
-
-  const cwd = getWorkspacePath();
-
-  const { stdout } = await runCommand("gh", [
-    "pr",
-    "view",
-    String(prNumber),
-    "--repo",
-    `${owner}/${repo}`,
-    "--json",
-    "files",
-  ], { cwd });
-
-  let data: { files?: Array<{ path: string; status?: string; additions?: number; deletions?: number }> };
-  try {
-    data = JSON.parse(stdout);
-  } catch (e) {
-    log(`fetchChangedFiles gh stdout (truncated): ${stdout.substring(0, 500)}`);
-    throw new Error("Failed to load PR file list. Check that the PR exists and you have access.");
-  }
-  if (!data.files || !Array.isArray(data.files)) {
-    throw new Error("Failed to load PR file list. GitHub returned an unexpected response.");
-  }
-
-  return data.files.map((f): ChangedFile => {
-    const raw = f.status?.toLowerCase() || "modified";
-    const status =
-      raw === "added" || raw === "deleted" || raw === "renamed" ? raw : "modified";
-    return {
-      path: f.path,
-      status,
-      additions: f.additions || 0,
-      deletions: f.deletions || 0,
-      comments: [],
-    };
-  });
+  return getProvider("github").fetchChangedFiles(owner, repo, prNumber);
 }
 
-/**
- * Fetch PR diff
- */
+/** Fetch PR diff (GitHub provider). */
 export async function fetchPRDiff(
   owner: string,
   repo: string,
   prNumber: number
 ): Promise<string> {
-  validateOwnerRepo(owner, "owner");
-  validateOwnerRepo(repo, "repo");
+  return getProvider("github").fetchPRDiff(owner, repo, prNumber);
+}
 
-  const cwd = getWorkspacePath();
+/** Submit review comments (GitHub provider). */
+export async function submitReviewComments(
+  pr: PRInfo,
+  comments: ReviewComment[],
+  summary?: string | null
+): Promise<{ success: boolean; message: string; url?: string }> {
+  return getProvider("github").submitReviewComments(pr, comments, summary);
+}
 
-  const { stdout } = await runCommand("gh", [
-    "pr",
-    "diff",
-    String(prNumber),
-    "--repo",
-    `${owner}/${repo}`,
-  ], { cwd, maxBuffer: 50 * 1024 * 1024 });
+/** Approve PR (GitHub provider). */
+export async function approvePR(
+  pr: PRInfo,
+  body: string = "LGTM! Code reviewed with PR Review Assistant."
+): Promise<{ success: boolean; message: string; url?: string }> {
+  const provider = getProvider("github");
+  if (provider.approvePR) {
+    return provider.approvePR(pr, body);
+  }
+  return { success: false, message: "Approve not supported" };
+}
 
-  return stdout;
+function getWorkspacePath(): string | undefined {
+  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
 /**
@@ -215,7 +119,6 @@ export async function getLocalBranchInfo(): Promise<{
     throw new Error("Not on a branch (detached HEAD)");
   }
 
-  // Try main first, then master
   let baseBranch = "main";
   try {
     await runCommand("git", ["rev-parse", "main"], { cwd });
@@ -233,7 +136,6 @@ export async function getLocalBranchInfo(): Promise<{
 
 /**
  * Fetch local diff (current branch vs main/master)
- * Uses git diff baseBranch...HEAD - no network required
  */
 export async function fetchLocalDiff(baseBranch: string = "main"): Promise<string> {
   validateBranchName(baseBranch);
@@ -274,190 +176,6 @@ export async function getFileAtRevision(
     });
     return stdout;
   } catch {
-    return ""; // File may not exist at that revision (e.g. new file)
+    return "";
   }
-}
-
-/**
- * Approve a PR (LGTM) - used when user rejects all AI comments
- */
-export async function approvePR(
-  pr: PRInfo,
-  body: string = "LGTM! Code reviewed with PR Review Assistant."
-): Promise<{ success: boolean; message: string; url?: string }> {
-  validateOwnerRepo(pr.owner, "owner");
-  validateOwnerRepo(pr.repo, "repo");
-
-  const cwd = getWorkspacePath();
-  const payload = {
-    event: "APPROVE",
-    body,
-  };
-
-  const tempFile = await writeSecureTempFile(
-    "pr-review-approve",
-    ".json",
-    JSON.stringify(payload, null, 2)
-  );
-
-  try {
-
-    const { stdout } = await runCommand("gh", [
-      "api",
-      `repos/${pr.owner}/${pr.repo}/pulls/${pr.number}/reviews`,
-      "--method",
-      "POST",
-      "--input",
-      tempFile,
-    ], { cwd });
-
-    let response: { html_url?: string };
-    try {
-      response = JSON.parse(stdout);
-    } catch {
-      log(`approvePR gh stdout (truncated): ${stdout.substring(0, 500)}`);
-      return {
-        success: false,
-        message: "GitHub returned an unexpected response. Check the PR and try again.",
-      };
-    }
-
-    return {
-      success: true,
-      message: `PR #${pr.number} approved`,
-      url: response.html_url,
-    };
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    return {
-      success: false,
-      message: `Failed to approve: ${msg}`,
-    };
-  } finally {
-    try {
-      await unlinkAsync(tempFile);
-    } catch {
-      // Ignore cleanup errors
-    }
-  }
-}
-
-/**
- * Submit review comments to GitHub PR
- */
-export async function submitReviewComments(
-  pr: PRInfo,
-  comments: ReviewComment[],
-  summary?: string | null
-): Promise<{ success: boolean; message: string; url?: string }> {
-  validateOwnerRepo(pr.owner, "owner");
-  validateOwnerRepo(pr.repo, "repo");
-
-  const cwd = getWorkspacePath();
-
-  if (comments.length === 0) {
-    return { success: false, message: "No comments to submit" };
-  }
-
-  // Build review payload with side parameter for accurate line placement
-  const reviewComments = comments.map((c) => ({
-    path: c.file,
-    line: c.line,
-    side: c.side, // LEFT for deleted lines, RIGHT for added/context lines
-    body: c.editedText || formatCommentBody(c),
-  }));
-
-  // Use the AI summary or a default message
-  const reviewBody =
-    summary || `AI code review: ${comments.length} issue(s) found.`;
-
-  const payload = {
-    body: reviewBody,
-    event: "COMMENT",
-    comments: reviewComments,
-  };
-
-  // Use a temp file to avoid shell escaping issues with complex JSON
-  const tempFile = await writeSecureTempFile(
-    "pr-review",
-    ".json",
-    JSON.stringify(payload, null, 2)
-  );
-
-  try {
-
-    const { stdout } = await runCommand("gh", [
-      "api",
-      `repos/${pr.owner}/${pr.repo}/pulls/${pr.number}/reviews`,
-      "--method",
-      "POST",
-      "--input",
-      tempFile,
-    ], { cwd });
-
-    let response: { html_url?: string };
-    try {
-      response = JSON.parse(stdout);
-    } catch {
-      log(`submitReviewComments gh stdout (truncated): ${stdout.substring(0, 500)}`);
-      return {
-        success: false,
-        message: "GitHub returned an unexpected response. Check the PR and try again.",
-      };
-    }
-
-    return {
-      success: true,
-      message: `Submitted ${comments.length} comment(s) to PR #${pr.number}`,
-      url: response.html_url,
-    };
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-
-    if (msg.includes("422")) {
-      return {
-        success: false,
-        message:
-          "Some line numbers may be invalid for this PR diff. The comment may reference lines not in the diff.",
-      };
-    }
-    if (msg.includes("404")) {
-      return { success: false, message: `PR #${pr.number} not found` };
-    }
-
-    return { success: false, message: `Failed to submit: ${msg}` };
-  } finally {
-    // Clean up temp file
-    try {
-      await unlinkAsync(tempFile);
-    } catch {
-      // Ignore cleanup errors
-    }
-  }
-}
-
-/**
- * Format a comment body for GitHub
- */
-function formatCommentBody(comment: ReviewComment): string {
-  const severityEmoji: Record<string, string> = {
-    critical: "🔴",
-    high: "🟠",
-    medium: "🟡",
-    low: "🟢",
-  };
-
-  let body = `${
-    severityEmoji[comment.severity] || "⚪"
-  } **${comment.severity.toUpperCase()}**: ${comment.issue}`;
-
-  if (comment.suggestion) {
-    body += `\n\n**Suggestion:** ${comment.suggestion}`;
-  }
-
-  if (comment.codeSnippet) {
-    body += `\n\n\`\`\`suggestion\n${comment.codeSnippet}\n\`\`\``;
-  }
-
-  return body;
 }
