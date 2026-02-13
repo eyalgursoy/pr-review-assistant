@@ -552,12 +552,14 @@ function parseAIResponse(response: string): AIReviewResult {
           id: `comment-${Date.now()}-${idx}`,
           file: String(f.file || "unknown").replace(/^[ab]\//, ""),
           line: Number(f.line) || 1,
+          endLine: f.endLine != null ? Math.floor(Number(f.endLine)) : undefined,
           side: normalizeSide(f.side),
           severity: normalizeSeverity(f.severity),
           issue: sanitizeString(String(f.issue || "Unknown issue")),
           suggestion: f.suggestion
             ? sanitizeString(String(f.suggestion))
             : undefined,
+          codeSnippet: f.codeSnippet ? sanitizeString(String(f.codeSnippet)) : undefined,
           status: "pending" as const,
         }));
         return { summary: fallbackSummary, comments: fallbackComments };
