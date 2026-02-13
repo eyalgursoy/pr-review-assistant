@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Validate comment file path before opening: goToComment, fixInChat, generateSuggestionForComment, and viewDiffForComment now use `validateGitPath` so AI-origin paths that escape the workspace are rejected with a warning.
 - Wrap GitHub CLI JSON.parse in try/catch for fetchPRInfo, fetchChangedFiles, approvePR, and submitReviewComments; show user-facing errors instead of raw parse errors when gh returns non-JSON.
 - Fallback AI response parsing now includes endLine and codeSnippet on comments so they match the schema path and UI/GitHub submission behave consistently.
+- Comment thread body now shows user-edited text (editedText) when present, sanitized for safe display; fixes thread not updating after Save.
 
 ### Added
 

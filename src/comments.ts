@@ -309,12 +309,18 @@ function getFileUri(filePath: string): vscode.Uri {
 }
 
 /**
- * Format comment body as markdown (sanitized for safe display)
+ * Format comment body as markdown (sanitized for safe display).
+ * When the user has edited the comment (editedText), show that as the primary body; otherwise show issue/suggestion/codeSnippet.
  */
 function formatCommentBody(comment: ReviewComment): vscode.MarkdownString {
   const md = new vscode.MarkdownString();
   md.isTrusted = false;
   md.supportHtml = false;
+
+  if (comment.editedText?.trim()) {
+    md.appendMarkdown(sanitizeMarkdownForDisplay(comment.editedText));
+    return md;
+  }
 
   const safeIssue = sanitizeMarkdownForDisplay(comment.issue);
   const safeSuggestion = comment.suggestion
