@@ -7,6 +7,7 @@
 
 import * as vscode from "vscode";
 import { getCommentsForFile, onStateChange } from "./state";
+import { sanitizeMarkdownForDisplay } from "./markdown-utils";
 
 export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
   private _onDidChangeCodeLenses = new vscode.EventEmitter<void>();
@@ -146,11 +147,15 @@ export function updateDecorations(
       editor.document.lineAt(line).text.length
     );
 
+    const safeIssue = sanitizeMarkdownForDisplay(comment.issue);
+    const safeSuggestion = comment.suggestion
+      ? sanitizeMarkdownForDisplay(comment.suggestion)
+      : "";
     const decoration: vscode.DecorationOptions = {
       range,
       hoverMessage: new vscode.MarkdownString(
-        `**${comment.severity.toUpperCase()}**: ${comment.issue}${
-          comment.suggestion ? `\n\n*Suggestion:* ${comment.suggestion}` : ""
+        `**${comment.severity.toUpperCase()}**: ${safeIssue}${
+          safeSuggestion ? `\n\n*Suggestion:* ${safeSuggestion}` : ""
         }`
       ),
     };

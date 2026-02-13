@@ -56,6 +56,7 @@ import {
 } from "./ai-providers";
 import { initSecretStorage, setApiKey, deleteApiKey } from "./secrets";
 import { writeSecureTempFile } from "./shell-utils";
+import { sanitizeMarkdownForDisplay } from "./markdown-utils";
 import { buildReviewPrompt } from "./review-template";
 import {
   detectProjectContext,
@@ -1260,18 +1261,24 @@ async function goToComment(comment: ReviewComment) {
  * Show comment details in a modal
  */
 function showCommentDetails(comment: ReviewComment) {
+  const safeIssue = sanitizeMarkdownForDisplay(comment.issue);
+  const safeSuggestion = comment.suggestion
+    ? sanitizeMarkdownForDisplay(comment.suggestion)
+    : "";
+  const safeFile = sanitizeMarkdownForDisplay(comment.file);
+
   const md = new vscode.MarkdownString();
   md.appendMarkdown(`## ${comment.severity.toUpperCase()}\n\n`);
-  md.appendMarkdown(`**Issue:** ${comment.issue}\n\n`);
-  if (comment.suggestion) {
-    md.appendMarkdown(`**Suggestion:** ${comment.suggestion}\n\n`);
+  md.appendMarkdown(`**Issue:** ${safeIssue}\n\n`);
+  if (safeSuggestion) {
+    md.appendMarkdown(`**Suggestion:** ${safeSuggestion}\n\n`);
   }
-  md.appendMarkdown(`**File:** ${comment.file}:${comment.line}\n\n`);
+  md.appendMarkdown(`**File:** ${safeFile}:${comment.line}\n\n`);
   md.appendMarkdown(`**Status:** ${comment.status}`);
 
   vscode.window.showInformationMessage(
-    `[${comment.severity.toUpperCase()}] ${comment.issue}`,
-    { modal: false, detail: comment.suggestion }
+    `[${comment.severity.toUpperCase()}] ${safeIssue}`,
+    { modal: false, detail: safeSuggestion || undefined }
   );
 }
 

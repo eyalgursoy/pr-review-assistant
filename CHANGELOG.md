@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Sanitize AI/user content in comment details modal, CodeLens hover, and tree view tooltip to prevent XSS (`sanitizeMarkdownForDisplay` used in extension, codelens, tree-view).
+
 ### Added
 
 - **Cursor CLI model selection**: When AI provider is Cursor CLI, you can choose a default model via the `PR Review: Select Cursor CLI Model` command (QuickPick lists models from `agent --list-models`). The selected model is shown in the sidebar TreeView and is passed to the agent; if the model is no longer available, the extension falls back to Auto. Setting: `prReview.aiProviderCursorModel` (default: `Auto`).

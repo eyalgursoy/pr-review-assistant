@@ -25,6 +25,7 @@ import type {
   CommentStatus,
 } from "./types";
 import { getAIProvider, getSelectedCursorModel } from "./ai-providers";
+import { sanitizeMarkdownForDisplay } from "./markdown-utils";
 
 type TreeItemType =
   | "pr-info"
@@ -593,13 +594,15 @@ export class PRReviewTreeProvider
     const md = new vscode.MarkdownString();
     const sideLabel =
       comment.side === "LEFT" ? "deleted line" : "added/context line";
+    const safeIssue = sanitizeMarkdownForDisplay(comment.issue);
+    const safeSuggestion = comment.suggestion
+      ? sanitizeMarkdownForDisplay(comment.suggestion)
+      : "";
     md.appendMarkdown(
-      `**${comment.severity.toUpperCase()}** (${sideLabel}): ${
-        comment.issue
-      }\n\n`
+      `**${comment.severity.toUpperCase()}** (${sideLabel}): ${safeIssue}\n\n`
     );
-    if (comment.suggestion) {
-      md.appendMarkdown(`**Suggestion:** ${comment.suggestion}\n\n`);
+    if (safeSuggestion) {
+      md.appendMarkdown(`**Suggestion:** ${safeSuggestion}\n\n`);
     }
     md.appendMarkdown(`*Status: ${comment.status}*`);
     return md;
