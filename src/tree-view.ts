@@ -221,6 +221,87 @@ export class PRReviewTreeProvider
     return [];
   }
 
+  getParent(element: TreeItemData): TreeItemData | undefined {
+    // Root-level items have no parent
+    if (
+      element.type === "pr-info" ||
+      element.type === "section" ||
+      element.type === "model-info" ||
+      element.type === "progress"
+    ) {
+      return undefined;
+    }
+    // Root-level status: Error or "No issues found"
+    if (element.type === "status") {
+      if (element.label.startsWith("Error:") || element.description === "✓") {
+        return undefined;
+      }
+      // Review Summary status (pending, approved, rejected)
+      const count = getAllComments().length;
+      return {
+        type: "section",
+        label: "Review Summary",
+        description: `${count} comments`,
+      };
+    }
+    if (element.type === "action") {
+      const count = getAllComments().length;
+      return {
+        type: "section",
+        label: "Review Summary",
+        description: `${count} comments`,
+      };
+    }
+    if (element.type === "progress-detail" || element.type === "progress-stats") {
+      const progress = getProgress();
+      const stageLabels: Record<string, string> = {
+        "fetching-pr": "Fetching PR Info",
+        "loading-diff": "Loading Diff",
+        "preparing-prompt": "Preparing Prompt",
+        "ai-analyzing": "AI Analyzing",
+        "ai-streaming": "AI Reviewing",
+        "parsing-response": "Processing Results",
+        complete: "Complete",
+        error: "Error",
+      };
+      return {
+        type: "progress",
+        label: stageLabels[progress.stage] || progress.stage,
+        description: progress.message,
+      };
+    }
+    if (element.type === "file") {
+      const state = getState();
+      if (state.files.length > 0) {
+        return {
+          type: "section",
+          label: "Changed Files",
+          description: `${state.files.length} files`,
+        };
+      }
+      return undefined;
+    }
+    if (element.type === "comment" && element.comment) {
+      const state = getState();
+      const file = state.files.find((f) =>
+        f.comments.includes(element.comment!)
+      );
+      if (file) {
+        return {
+          type: "file" as TreeItemType,
+          label: path.basename(file.path),
+          description:
+            file.comments.length > 0
+              ? `${file.comments.length} comments`
+              : `+${file.additions} -${file.deletions}`,
+          file,
+        };
+      }
+      return undefined;
+    }
+    return undefined;
+  }
+
   private getRootItems(state: ReviewState): TreeItemData[] {
     const items: TreeItemData[] = [];
     const progress = getProgress();
