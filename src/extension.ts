@@ -454,32 +454,35 @@ function registerCommands(context: vscode.ExtensionContext) {
     )
   );
 
-  // Go to Comment (from tree view)
+  // Go to Comment (from tree view or codelens; tree passes element as first arg)
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "prReview.goToComment",
-      async (comment: ReviewComment) => {
-        await goToComment(comment);
+      async (arg: ReviewComment | { comment?: ReviewComment } | unknown) => {
+        const comment = resolveCommentArg(arg);
+        if (comment) await goToComment(comment);
       }
     )
   );
 
-  // Show Comment Details
+  // Show Comment Details (tree passes element as first arg)
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "prReview.showCommentDetails",
-      (comment: ReviewComment) => {
-        showCommentDetails(comment);
+      (arg: ReviewComment | { comment?: ReviewComment } | unknown) => {
+        const comment = resolveCommentArg(arg);
+        if (comment) showCommentDetails(comment);
       }
     )
   );
 
-  // Show Suggestion
+  // Show Suggestion (tree passes element as first arg)
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "prReview.showSuggestion",
-      (comment: ReviewComment) => {
-        if (comment.suggestion) {
+      (arg: ReviewComment | { comment?: ReviewComment } | unknown) => {
+        const comment = resolveCommentArg(arg);
+        if (comment?.suggestion) {
           vscode.window.showInformationMessage(comment.suggestion, {
             modal: false,
           });
