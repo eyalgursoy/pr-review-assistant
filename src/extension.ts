@@ -975,7 +975,7 @@ async function submitReview() {
         result.message,
         ...(action ? [action] : [])
       );
-      if (selected === "View on GitHub" && result.url) {
+      if (selected === "View online" && result.url) {
         vscode.env.openExternal(vscode.Uri.parse(result.url));
       }
     } else {
