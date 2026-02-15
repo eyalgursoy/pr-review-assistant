@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Comment body: apply strikethrough per paragraph so resolved/outdated text renders correctly when suggestion or code snippet are present.
 - CodeLens provider: track and dispose config/state listeners via `ExtensionContext` to avoid resource leak.
 
 ### Changed

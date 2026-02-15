@@ -381,11 +381,10 @@ function formatCommentBody(
     : "";
 
   if (struck) {
-    md.appendMarkdown(`~~**Issue:** ${safeIssue}`);
-    if (safeSuggestion) md.appendMarkdown(`\n\n**Suggestion:** ${safeSuggestion}`);
+    md.appendMarkdown(`~~**Issue:** ${safeIssue}~~`);
+    if (safeSuggestion) md.appendMarkdown(`\n\n~~**Suggestion:** ${safeSuggestion}~~`);
     if (safeCodeSnippet)
-      md.appendMarkdown(`\n\n**Suggested fix:**\n\`\`\`\n${safeCodeSnippet}\n\`\`\``);
-    md.appendMarkdown("~~");
+      md.appendMarkdown(`\n\n~~**Suggested fix:**~~\n\`\`\`\n${safeCodeSnippet}\n\`\`\``);
   } else {
     md.appendMarkdown(`**Issue:** ${safeIssue}\n\n`);
     if (safeSuggestion) {
