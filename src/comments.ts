@@ -275,6 +275,17 @@ function refreshCommentThreads(): void {
 
     let thread = threadMap.get(threadId);
 
+    // Sync UI resolve back to extension state: if user marked thread Resolved in the editor
+    // but our comment is still pending, update status so the resolve persists and sidebar reflects it.
+    if (
+      thread &&
+      thread.state === vscode.CommentThreadState.Resolved &&
+      root.status === "pending"
+    ) {
+      updateCommentStatus(root.id, "approved");
+      return; // state change will trigger refresh again with updated status
+    }
+
     if (!thread) {
       const uri = getFileUri(root.file);
       const line = Math.max(0, root.line - 1);

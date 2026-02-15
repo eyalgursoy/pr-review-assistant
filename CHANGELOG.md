@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Comments: sync native thread "Resolved" state back to extension state so marking a comment resolved in the editor persists and no longer reverts on refresh.
 - Tests: type mock `ExtensionContext` explicitly in comment commands tests so the cast is visible if usage changes.
 - Comment body: apply strikethrough per paragraph so resolved/outdated text renders correctly when suggestion or code snippet are present.
 - CodeLens provider: track and dispose config/state listeners via `ExtensionContext` to avoid resource leak.
