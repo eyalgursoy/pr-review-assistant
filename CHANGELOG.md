@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-02
+
+### Added
+
+- **Resolved/outdated PR comments**: Setting `prReview.showResolvedOrOutdatedComments` (`hide` \| `showStruck`). When `hide`, resolved or outdated host comments are excluded from tree, Comments panel, and CodeLens. When `showStruck`, they are shown with strikethrough and are non-actionable (no go-to, approve/reject, or edit).
+- **Reply hierarchy**: Host comment replies appear as children of the root comment in the tree view and as additional comments in the same thread in the Comments panel (GitHub `in_reply_to_id`, GitLab discussion notes, Bitbucket parent).
+- **New vs existing comments**: AI-generated comments are marked with a "New" indicator in the tree and CodeLens; host comments show author. `ReviewComment` now has optional `source`, `parentId`, `outdated`, and `resolved`.
+
 ### Fixed
 
 - Cursor CLI workspace trust: when the CLI returns the "Workspace Trust Required" prompt instead of JSON, show a clear error explaining that IDE Trusted folders don't apply and how to approve the directory via `agent chat` in a terminal.
+- Clicking outdated or resolved comments in the tree no longer errors: a message is shown instead of opening the file.
 
 ## [0.17.1] - 2026-02
 

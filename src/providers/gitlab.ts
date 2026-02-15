@@ -258,6 +258,7 @@ export const gitlabProvider: PRProvider = {
       if (!res.ok) break;
 
       const discussions = (await res.json()) as Array<{
+        resolved?: boolean;
         notes?: Array<{
           id: number;
           body?: string;
@@ -275,7 +276,10 @@ export const gitlabProvider: PRProvider = {
 
       for (const discussion of discussions) {
         const notes = discussion.notes || [];
-        for (const note of notes) {
+        const resolved = discussion.resolved === true;
+        const firstNoteId = notes[0]?.id;
+        for (let i = 0; i < notes.length; i++) {
+          const note = notes[i];
           const position = note.position;
           if (!position) continue;
 
@@ -292,6 +296,11 @@ export const gitlabProvider: PRProvider = {
           const side: "LEFT" | "RIGHT" = hasNew ? "RIGHT" : "LEFT";
           const line = hasNew ? (newLine ?? 1) : (hasOld ? (oldLine ?? 1) : 1);
 
+          const parentId =
+            firstNoteId != null && note.id !== firstNoteId
+              ? `host-gl-${firstNoteId}`
+              : undefined;
+
           all.push({
             id: `host-gl-${note.id}`,
             file: path,
@@ -301,6 +310,9 @@ export const gitlabProvider: PRProvider = {
             issue: (note.body || "").trim() || "(No content)",
             status: "pending",
             authorName: note.author?.username,
+            source: "host",
+            parentId,
+            resolved: resolved || undefined,
           });
         }
       }

@@ -44,6 +44,14 @@ export interface ReviewComment {
   editedText?: string;
   /** When set, shown in IDE instead of "AI Review (severity)" (e.g. host comment author). */
   authorName?: string;
+  /** Origin: AI review vs host (PR) comment. Used to show "New" vs existing. */
+  source?: "ai" | "host";
+  /** Reply hierarchy: id of the parent comment (root has no parentId). */
+  parentId?: string;
+  /** True when the comment's line/position no longer applies (e.g. code changed). */
+  outdated?: boolean;
+  /** True when the thread was marked resolved on the host (when API provides it). */
+  resolved?: boolean;
 }
 
 /** Supported git hosts for PR/MR review */

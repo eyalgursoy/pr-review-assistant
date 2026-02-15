@@ -6,7 +6,7 @@
  */
 
 import * as vscode from "vscode";
-import { getCommentsForFile, onStateChange } from "./state";
+import { getDisplayComments, onStateChange } from "./state";
 import { sanitizeMarkdownForDisplay } from "./markdown-utils";
 
 export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
@@ -14,15 +14,19 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
   readonly onDidChangeCodeLenses = this._onDidChangeCodeLenses.event;
 
   constructor() {
-    // Refresh code lenses when state changes
     onStateChange(() => {
       this._onDidChangeCodeLenses.fire();
+    });
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("prReview.showResolvedOrOutdatedComments")) {
+        this._onDidChangeCodeLenses.fire();
+      }
     });
   }
 
   provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
     const filePath = this.getRelativePath(document.uri);
-    const comments = getCommentsForFile(filePath);
+    const comments = getDisplayComments().filter((c) => c.file === filePath);
 
     if (comments.length === 0) {
       return [];
@@ -31,21 +35,20 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
     const codeLenses: vscode.CodeLens[] = [];
 
     for (const comment of comments) {
-      // Ensure line is within document bounds
       const line = Math.min(
         Math.max(0, comment.line - 1),
         document.lineCount - 1
       );
       const range = new vscode.Range(line, 0, line, 0);
 
-      // Simple indicator - clicking focuses the comment thread
       const severityEmoji = this.getSeverityEmoji(comment.severity);
       const statusIcon = this.getStatusIcon(comment.status);
+      const newBadge = comment.source === "ai" ? "🆕 " : "";
       const shortIssue = this.truncate(comment.issue, 80);
 
       codeLenses.push(
         new vscode.CodeLens(range, {
-          title: `${statusIcon} ${severityEmoji} ${shortIssue}`,
+          title: `${newBadge}${statusIcon} ${severityEmoji} ${shortIssue}`,
           command: "prReview.goToComment",
           arguments: [comment],
           tooltip: `Click to view comment details\n\n${comment.issue}`,
@@ -129,7 +132,7 @@ export function updateDecorations(
   decorations: ReturnType<typeof createCommentDecorations>
 ): void {
   const filePath = vscode.workspace.asRelativePath(editor.document.uri, false);
-  const comments = getCommentsForFile(filePath);
+  const comments = getDisplayComments().filter((c) => c.file === filePath);
 
   const pending: vscode.DecorationOptions[] = [];
   const approved: vscode.DecorationOptions[] = [];

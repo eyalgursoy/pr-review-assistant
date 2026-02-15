@@ -20,6 +20,11 @@ vi.mock("vscode", () => ({
   commands: {
     executeCommand: vi.fn(),
   },
+  workspace: {
+    getConfiguration: () => ({
+      get: (_key: string, defaultValue: string) => defaultValue,
+    }),
+  },
 }));
 
 import {
@@ -37,6 +42,9 @@ import {
   updateCommentStatus,
   updateCommentText,
   getAllComments,
+  getDisplayComments,
+  getRootCommentsForFile,
+  getReplies,
   getApprovedComments,
   getPendingComments,
   getRejectedComments,
@@ -272,6 +280,44 @@ describe("state", () => {
         const rejected = getRejectedComments();
         expect(rejected).toHaveLength(2);
         expect(rejected.every((c) => c.status === "rejected")).toBe(true);
+      });
+    });
+
+    describe("getDisplayComments", () => {
+      it("should exclude outdated and resolved when setting is hide", () => {
+        addComments([
+          { ...createComment("1", "src/a.ts"), outdated: true },
+          { ...createComment("2", "src/a.ts") },
+          { ...createComment("3", "src/a.ts"), resolved: true },
+        ]);
+        const display = getDisplayComments();
+        expect(display).toHaveLength(1);
+        expect(display[0].id).toBe("2");
+      });
+    });
+
+    describe("getRootCommentsForFile", () => {
+      it("should return only root comments (no parentId) for file", () => {
+        addComments([
+          { ...createComment("1", "src/a.ts") },
+          { ...createComment("2", "src/a.ts"), parentId: "1" },
+          { ...createComment("3", "src/a.ts") },
+        ]);
+        const roots = getRootCommentsForFile("src/a.ts");
+        expect(roots).toHaveLength(2);
+        expect(roots.map((c) => c.id).sort()).toEqual(["1", "3"]);
+      });
+    });
+
+    describe("getReplies", () => {
+      it("should return replies for a comment id", () => {
+        addComments([
+          { ...createComment("1", "src/a.ts") },
+          { ...createComment("2", "src/a.ts"), parentId: "1" },
+          { ...createComment("3", "src/a.ts"), parentId: "1" },
+        ]);
+        expect(getReplies("1")).toHaveLength(2);
+        expect(getReplies("2")).toHaveLength(0);
       });
     });
 

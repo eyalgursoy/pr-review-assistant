@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.17.2",
+  "version": "0.18.0",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -417,6 +417,12 @@
           "type": "boolean",
           "default": false,
           "description": "Log diff content and AI response previews to Output. Disable for privacy."
+        },
+        "prReview.showResolvedOrOutdatedComments": {
+          "type": "string",
+          "enum": ["hide", "showStruck"],
+          "default": "hide",
+          "description": "Resolved or outdated PR comments: hide them, or show with strikethrough (non-actionable)."
         },
         "prReview.clearRestoreStackOnDeactivate": {
           "type": "boolean",

@@ -8,6 +8,9 @@ import {
   getState,
   onStateChange,
   getAllComments,
+  getDisplayComments,
+  getRootCommentsForFile,
+  getReplies,
   allCommentsRejected,
 } from "./state";
 import {
@@ -72,7 +75,8 @@ export class PRReviewTreeProvider
       if (
         e.affectsConfiguration("prReview.cursorCliModel") ||
         e.affectsConfiguration("prReview.aiProviderCursorModel") ||
-        e.affectsConfiguration("prReview.aiProvider")
+        e.affectsConfiguration("prReview.aiProvider") ||
+        e.affectsConfiguration("prReview.showResolvedOrOutdatedComments")
       ) {
         this.refresh();
       }
@@ -99,36 +103,61 @@ export class PRReviewTreeProvider
         item.contextValue = "section";
         break;
 
-      case "file":
-        item.iconPath = this.getFileIcon(element.file!);
+      case "file": {
+        const file = element.file!;
+        const rootCount = getRootCommentsForFile(file.path).length;
+        const replyCount = file.comments.filter((c) => c.parentId).length;
+        const totalDisplay = getDisplayComments().filter((c) => c.file === file.path).length;
+        item.iconPath = this.getFileIcon(file);
         item.description = element.description;
         item.collapsibleState =
-          element.file!.comments.length > 0
+          rootCount > 0
             ? vscode.TreeItemCollapsibleState.Expanded
             : vscode.TreeItemCollapsibleState.None;
         item.contextValue = "file";
         item.command = {
           command: "vscode.open",
           title: "Open File",
-          arguments: [this.getFileUri(element.file!.path)],
+          arguments: [this.getFileUri(file.path)],
         };
         break;
+      }
 
-      case "comment":
+      case "comment": {
         const comment = element.comment!;
         item.iconPath = this.getCommentIcon(comment);
-        // Show line number and side (LEFT for deleted, RIGHT for added)
         const sideIndicator = comment.side === "LEFT" ? "−" : "+";
-        item.description = `Line ${comment.line} (${sideIndicator})`;
-        item.collapsibleState = vscode.TreeItemCollapsibleState.None;
-        item.contextValue = `comment-${comment.status}`;
+        const isReply = !!comment.parentId;
+        const newPrefix = comment.source === "ai" ? "🆕 " : "";
+        const struck = comment.outdated || comment.resolved;
+        const struckPrefix = struck ? "[Outdated] " : "";
+        item.label = struckPrefix + newPrefix + element.label;
+        item.description = isReply
+          ? `Line ${comment.line} (${sideIndicator}) · reply`
+          : `Line ${comment.line} (${sideIndicator})`;
+        item.collapsibleState =
+          getReplies(comment.id).length > 0
+            ? vscode.TreeItemCollapsibleState.Expanded
+            : vscode.TreeItemCollapsibleState.None;
+        item.contextValue = struck
+          ? `comment-outdated`
+          : `comment-${comment.status}`;
         item.tooltip = this.getCommentTooltip(comment);
-        item.command = {
-          command: "prReview.goToComment",
-          title: "Go to Comment",
-          arguments: [comment],
-        };
+        if (!struck) {
+          item.command = {
+            command: "prReview.goToComment",
+            title: "Go to Comment",
+            arguments: [comment],
+          };
+        } else {
+          item.command = {
+            command: "prReview.showOutdatedCommentMessage",
+            title: "Outdated/Resolved",
+            arguments: [],
+          };
+        }
         break;
+      }
 
       case "action":
         // Use appropriate icon per action
@@ -210,9 +239,20 @@ export class PRReviewTreeProvider
       }
     }
 
-    // File children (comments)
+    // File children: only root comments (no parentId)
     if (element.type === "file" && element.file) {
-      return element.file.comments.map((comment) => ({
+      const roots = getRootCommentsForFile(element.file.path);
+      return roots.map((comment) => ({
+        type: "comment" as TreeItemType,
+        label: this.truncate(comment.issue, 50),
+        comment,
+      }));
+    }
+
+    // Comment children: replies
+    if (element.type === "comment" && element.comment) {
+      const replies = getReplies(element.comment.id);
+      return replies.map((comment) => ({
         type: "comment" as TreeItemType,
         label: this.truncate(comment.issue, 50),
         comment,
@@ -283,17 +323,29 @@ export class PRReviewTreeProvider
       return undefined;
     }
     if (element.type === "comment" && element.comment) {
+      const comment = element.comment;
+      if (comment.parentId) {
+        const state = getState();
+        const parentComment = state.files.flatMap((f) => f.comments).find((c) => c.id === comment.parentId);
+        if (parentComment) {
+          return {
+            type: "comment" as TreeItemType,
+            label: this.truncate(parentComment.issue, 50),
+            comment: parentComment,
+          };
+        }
+      }
       const state = getState();
       const file = state.files.find((f) =>
-        f.comments.includes(element.comment!)
+        f.comments.some((c) => c.id === comment.id)
       );
       if (file) {
         return {
           type: "file" as TreeItemType,
           label: path.basename(file.path),
           description:
-            file.comments.length > 0
-              ? `${file.comments.length} comments`
+            getRootCommentsForFile(file.path).length > 0
+              ? `${getRootCommentsForFile(file.path).length} comments`
               : `+${file.additions} -${file.deletions}`,
           file,
         };
@@ -399,15 +451,18 @@ export class PRReviewTreeProvider
   }
 
   private getFileItems(state: ReviewState): TreeItemData[] {
-    return state.files.map((file) => ({
-      type: "file" as TreeItemType,
-      label: path.basename(file.path),
-      description:
-        file.comments.length > 0
-          ? `${file.comments.length} comments`
-          : `+${file.additions} -${file.deletions}`,
-      file,
-    }));
+    return state.files.map((file) => {
+      const rootCount = getRootCommentsForFile(file.path).length;
+      return {
+        type: "file" as TreeItemType,
+        label: path.basename(file.path),
+        description:
+          rootCount > 0
+            ? `${rootCount} comments`
+            : `+${file.additions} -${file.deletions}`,
+        file,
+      };
+    });
   }
 
   private getSummaryItems(state: ReviewState): TreeItemData[] {
