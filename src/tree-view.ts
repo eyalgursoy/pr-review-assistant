@@ -321,8 +321,8 @@ export class PRReviewTreeProvider
     }
     if (element.type === "comment" && element.comment) {
       const comment = element.comment;
+      const state = getState();
       if (comment.parentId) {
-        const state = getState();
         const parentComment = state.files.flatMap((f) => f.comments).find((c) => c.id === comment.parentId);
         if (parentComment) {
           return {
@@ -332,7 +332,6 @@ export class PRReviewTreeProvider
           };
         }
       }
-      const state = getState();
       const file = state.files.find((f) =>
         f.comments.some((c) => c.id === comment.id)
       );
