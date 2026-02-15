@@ -10,6 +10,8 @@ import {
   updateCommentStatus,
   updateCommentText,
   getAllComments,
+  getDisplayComments,
+  getReplies,
 } from "./state";
 import { log } from "./logger";
 import { sanitizeMarkdownForDisplay } from "./markdown-utils";
@@ -51,6 +53,16 @@ class PRReviewComment implements vscode.Comment {
   }
 }
 
+function getReviewCommentFromArg(
+  arg: vscode.CommentThread | PRReviewComment
+): ReviewComment | undefined {
+  if ("comments" in arg) {
+    const first = arg.comments[0] as PRReviewComment | undefined;
+    return first?.reviewComment;
+  }
+  return (arg as PRReviewComment).reviewComment;
+}
+
 /**
  * Initialize the comment controller
  */
@@ -77,32 +89,37 @@ export function initCommentController(context: vscode.ExtensionContext): void {
     refreshCommentThreads();
   });
 
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("prReview.showResolvedOrOutdatedComments")) {
+        refreshCommentThreads();
+      }
+    })
+  );
+
   // Initial refresh
   refreshCommentThreads();
 }
 
 /**
- * Register commands for comment thread actions
+ * Register commands for comment thread actions.
+ * Exported for testing.
  */
-function registerCommentCommands(context: vscode.ExtensionContext): void {
+export function registerCommentCommands(context: vscode.ExtensionContext): void {
   // Approve comment (can receive thread or comment)
   context.subscriptions.push(
     vscode.commands.registerCommand(
       "prReview.comment.approve",
       (arg: vscode.CommentThread | PRReviewComment) => {
-        let commentId: string | undefined;
-
-        if ("comments" in arg) {
-          // It's a thread
-          const comment = arg.comments[0] as PRReviewComment;
-          commentId = comment?.id;
-        } else {
-          // It's a comment
-          commentId = arg.id;
+        const reviewComment = getReviewCommentFromArg(arg);
+        if (reviewComment?.outdated || reviewComment?.resolved) {
+          vscode.window.showInformationMessage(
+            "This comment is outdated or resolved and cannot be changed."
+          );
+          return;
         }
-
-        if (commentId) {
-          updateCommentStatus(commentId, "approved");
+        if (reviewComment) {
+          updateCommentStatus(reviewComment.id, "approved");
           vscode.window.showInformationMessage("Comment approved ✓");
         }
       }
@@ -114,19 +131,15 @@ function registerCommentCommands(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       "prReview.comment.reject",
       (arg: vscode.CommentThread | PRReviewComment) => {
-        let commentId: string | undefined;
-
-        if ("comments" in arg) {
-          // It's a thread
-          const comment = arg.comments[0] as PRReviewComment;
-          commentId = comment?.id;
-        } else {
-          // It's a comment
-          commentId = arg.id;
+        const reviewComment = getReviewCommentFromArg(arg);
+        if (reviewComment?.outdated || reviewComment?.resolved) {
+          vscode.window.showInformationMessage(
+            "This comment is outdated or resolved and cannot be changed."
+          );
+          return;
         }
-
-        if (commentId) {
-          updateCommentStatus(commentId, "rejected");
+        if (reviewComment) {
+          updateCommentStatus(reviewComment.id, "rejected");
           vscode.window.showInformationMessage("Comment rejected ✗");
         }
       }
@@ -138,6 +151,12 @@ function registerCommentCommands(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       "prReview.comment.edit",
       (comment: PRReviewComment) => {
+        if (comment.reviewComment.outdated || comment.reviewComment.resolved) {
+          vscode.window.showInformationMessage(
+            "This comment is outdated or resolved and cannot be edited."
+          );
+          return;
+        }
         if (!comment.parent) return;
 
         comment.parent.comments = comment.parent.comments.map((c) => {
@@ -155,6 +174,12 @@ function registerCommentCommands(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       "prReview.comment.save",
       (comment: PRReviewComment) => {
+        if (comment.reviewComment.outdated || comment.reviewComment.resolved) {
+          vscode.window.showInformationMessage(
+            "This comment is outdated or resolved and cannot be changed."
+          );
+          return;
+        }
         if (!comment.parent) return;
 
         const bodyText =
@@ -228,7 +253,8 @@ function registerCommentCommands(context: vscode.ExtensionContext): void {
 }
 
 /**
- * Refresh all comment threads based on current state
+ * Refresh all comment threads based on current state.
+ * One thread per root comment; replies are added to the root's thread as additional comments.
  */
 function refreshCommentThreads(): void {
   if (!commentController) {
@@ -236,59 +262,85 @@ function refreshCommentThreads(): void {
     return;
   }
 
-  const allComments = getAllComments();
+  const displayComments = getDisplayComments();
+  const roots = displayComments.filter((c) => !c.parentId);
 
-  log(`Refreshing comment threads: ${allComments.length} comments`);
+  log(`Refreshing comment threads: ${roots.length} root threads`);
 
-  // Track which threads we've updated
   const updatedThreadIds = new Set<string>();
 
-  for (const comment of allComments) {
-    const threadId = comment.id;
+  for (const root of roots) {
+    const threadId = root.id;
     updatedThreadIds.add(threadId);
 
-    // Get or create thread
     let thread = threadMap.get(threadId);
 
+    // Sync UI resolve back to extension state: if user marked thread Resolved in the editor
+    // but our comment is still pending, update status so the resolve persists and sidebar reflects it.
+    if (
+      thread &&
+      thread.state === vscode.CommentThreadState.Resolved &&
+      root.status === "pending"
+    ) {
+      updateCommentStatus(root.id, "approved");
+      continue; // state change will trigger refresh again with updated status
+    }
+
     if (!thread) {
-      // Create new thread
-      const uri = getFileUri(comment.file);
-      const line = Math.max(0, comment.line - 1);
+      const uri = getFileUri(root.file);
+      const line = Math.max(0, root.line - 1);
       const range = new vscode.Range(line, 0, line, 0);
 
       log(
-        `Creating comment thread: file=${
-          comment.file
-        }, uri=${uri.toString()}, line=${comment.line}, side=${comment.side}`
+        `Creating comment thread: file=${root.file}, uri=${uri.toString()}, line=${root.line}, side=${root.side}`
       );
 
       thread = commentController.createCommentThread(uri, range, []);
       thread.canReply = false;
-      thread.label = getSeverityLabel(comment.severity);
       threadMap.set(threadId, thread);
     }
 
-    // Update thread state based on comment status
-    thread.state = getThreadState(comment.status);
-    thread.contextValue = `prReviewThread-${comment.status}`;
+    const outdated = root.outdated || root.resolved;
+    const struck =
+      outdated || root.status === "approved" || root.status === "rejected";
+    thread.label =
+      getSeverityLabel(root.severity) + (outdated ? " (Outdated)" : "");
+    thread.state = getThreadState(root.status);
+    thread.contextValue = outdated
+      ? "prReviewThread-outdated"
+      : `prReviewThread-${root.status}`;
     thread.collapsibleState =
-      comment.status === "pending"
+      root.status === "pending"
         ? vscode.CommentThreadCollapsibleState.Expanded
         : vscode.CommentThreadCollapsibleState.Collapsed;
 
-    // Create/update the comment in the thread
-    const prComment = new PRReviewComment(
-      formatCommentBody(comment),
-      vscode.CommentMode.Preview,
-      getAuthorInfo(comment),
-      comment,
-      thread
-    );
-
-    thread.comments = [prComment];
+    const replies = getReplies(root.id);
+    const threadComments: vscode.Comment[] = [
+      new PRReviewComment(
+        formatCommentBody(root, struck),
+        vscode.CommentMode.Preview,
+        getAuthorInfo(root),
+        root,
+        thread
+      ),
+      ...replies.map((reply) => {
+        const replyStruck =
+          reply.outdated ||
+          reply.resolved ||
+          reply.status === "approved" ||
+          reply.status === "rejected";
+        return new PRReviewComment(
+          formatCommentBody(reply, replyStruck),
+          vscode.CommentMode.Preview,
+          getAuthorInfo(reply),
+          reply,
+          thread
+        );
+      }),
+    ];
+    thread.comments = threadComments;
   }
 
-  // Remove threads that no longer exist
   for (const [threadId, thread] of threadMap) {
     if (!updatedThreadIds.has(threadId)) {
       thread.dispose();
@@ -311,14 +363,22 @@ function getFileUri(filePath: string): vscode.Uri {
 /**
  * Format comment body as markdown (sanitized for safe display).
  * When the user has edited the comment (editedText), show that as the primary body; otherwise show issue/suggestion/codeSnippet.
+ * When struck is true (outdated/resolved), wrap in strikethrough.
  */
-function formatCommentBody(comment: ReviewComment): vscode.MarkdownString {
+function formatCommentBody(
+  comment: ReviewComment,
+  struck?: boolean
+): vscode.MarkdownString {
   const md = new vscode.MarkdownString();
   md.isTrusted = false;
   md.supportHtml = false;
 
   if (comment.editedText?.trim()) {
-    md.appendMarkdown(sanitizeMarkdownForDisplay(comment.editedText));
+    const body = sanitizeMarkdownForDisplay(comment.editedText);
+    const formatted = struck
+      ? body.split('\n\n').map((p) => (p.trim() ? "~~" + p + "~~" : p)).join("\n\n")
+      : body;
+    md.appendMarkdown(formatted);
     return md;
   }
 
@@ -330,12 +390,19 @@ function formatCommentBody(comment: ReviewComment): vscode.MarkdownString {
     ? sanitizeMarkdownForDisplay(comment.codeSnippet)
     : "";
 
-  md.appendMarkdown(`**Issue:** ${safeIssue}\n\n`);
-  if (safeSuggestion) {
-    md.appendMarkdown(`**Suggestion:** ${safeSuggestion}\n\n`);
-  }
-  if (safeCodeSnippet) {
-    md.appendMarkdown(`**Suggested fix:**\n\`\`\`\n${safeCodeSnippet}\n\`\`\`\n`);
+  if (struck) {
+    md.appendMarkdown(`~~**Issue:** ${safeIssue}~~`);
+    if (safeSuggestion) md.appendMarkdown(`\n\n~~**Suggestion:** ${safeSuggestion}~~`);
+    if (safeCodeSnippet)
+      md.appendMarkdown(`\n\n~~**Suggested fix:**~~\n\`\`\`\n${safeCodeSnippet}\n\`\`\``);
+  } else {
+    md.appendMarkdown(`**Issue:** ${safeIssue}\n\n`);
+    if (safeSuggestion) {
+      md.appendMarkdown(`**Suggestion:** ${safeSuggestion}\n\n`);
+    }
+    if (safeCodeSnippet) {
+      md.appendMarkdown(`**Suggested fix:**\n\`\`\`\n${safeCodeSnippet}\n\`\`\`\n`);
+    }
   }
 
   return md;

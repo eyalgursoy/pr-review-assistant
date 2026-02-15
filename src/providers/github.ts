@@ -81,6 +81,86 @@ function normalizePath(path: string): string {
   return path;
 }
 
+/**
+ * Fetches thread-level isResolved for PR review threads via GraphQL.
+ * Returns a map from comment node_id to resolved (true only when thread is resolved).
+ * On failure (e.g. permissions or network), returns an empty map so REST-based fetch still works.
+ */
+async function fetchReviewThreadResolvedMap(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  cwd: string | undefined
+): Promise<Map<string, boolean>> {
+  const map = new Map<string, boolean>();
+  const query =
+    "query($owner: String!, $repo: String!, $number: Int!, $cursor: String) { repository(owner: $owner, name: $repo) { pullRequest(number: $number) { reviewThreads(first: 100, after: $cursor) { nodes { isResolved comments(first: 100) { nodes { id } } } pageInfo { hasNextPage endCursor } } } } }";
+  let cursor: string | null = null;
+
+  try {
+    for (;;) {
+      const args = [
+        "api",
+        "graphql",
+        "-f",
+        `query=${query}`,
+        "-f",
+        `owner=${owner}`,
+        "-f",
+        `repo=${repo}`,
+        "-F",
+        `number=${prNumber}`,
+      ];
+      if (cursor != null) {
+        args.push("-f", `cursor=${cursor}`);
+      }
+      const { stdout } = await runCommand("gh", args, { cwd });
+      const data = JSON.parse(stdout || "{}") as {
+        data?: {
+          repository?: {
+            pullRequest?: {
+              reviewThreads?: {
+                nodes?: Array<{
+                  isResolved?: boolean;
+                  comments?: { nodes?: Array<{ id?: string }> };
+                }>;
+                pageInfo?: { hasNextPage?: boolean; endCursor?: string };
+              };
+            };
+          };
+        };
+        errors?: Array<{ message?: string }>;
+      };
+      if (data.errors?.length) {
+        log(
+          `fetchReviewThreadResolvedMap GraphQL errors: ${JSON.stringify(data.errors)}`
+        );
+        break;
+      }
+      const threads =
+        data.data?.repository?.pullRequest?.reviewThreads?.nodes ?? [];
+      const pageInfo =
+        data.data?.repository?.pullRequest?.reviewThreads?.pageInfo;
+
+      for (const thread of threads) {
+        const resolved = thread.isResolved === true;
+        const commentIds = thread.comments?.nodes ?? [];
+        for (const node of commentIds) {
+          if (node.id) map.set(node.id, resolved);
+        }
+      }
+
+      if (!pageInfo?.hasNextPage || !pageInfo?.endCursor) break;
+      cursor = pageInfo.endCursor;
+    }
+  } catch (e) {
+    log(
+      `fetchReviewThreadResolvedMap failed (resolved state will be unknown): ${e instanceof Error ? e.message : String(e)}`
+    );
+  }
+  return map;
+}
+
 export const githubProvider: PRProvider = {
   host: "github",
 
@@ -268,14 +348,16 @@ export const githubProvider: PRProvider = {
       path?: string;
       line?: number | null;
       original_line?: number | null;
+      position?: number | null;
       side?: string;
       body?: string;
       user?: { login?: string } | null;
       subject_type?: string;
+      in_reply_to_id?: number | null;
     };
 
+    const rawItems: GhComment[] = [];
     while (true) {
-      // Query string for pagination; -f would send body and GET list endpoint returns 422
       const url = `repos/${owner}/${repo}/pulls/${prNumber}/comments?per_page=${perPage}&page=${page}`;
       const { stdout } = await runCommand(
         "gh",
@@ -305,38 +387,73 @@ export const githubProvider: PRProvider = {
       }
 
       if (items.length === 0) break;
-
-      for (const item of items) {
-        const path = item.path;
-        if (!path) continue;
-
-        const subjectType = item.subject_type;
-        const isFileLevel = subjectType === "file";
-        const line =
-          isFileLevel ? 1 : (item.line ?? item.original_line ?? 1);
-        const side =
-          item.side === "LEFT" ? ("LEFT" as const) : ("RIGHT" as const);
-        const nodeId = item.node_id ?? String(item.id ?? "");
-        const id = `host-gh-${nodeId}`;
-        const parsedBody = parseCommentBody(item.body ?? "");
-        const filePath = normalizePath(path);
-
-        all.push({
-          id,
-          file: filePath,
-          line: typeof line === "number" ? line : 1,
-          side,
-          severity: "medium",
-          issue: parsedBody.issue,
-          suggestion: parsedBody.suggestion,
-          codeSnippet: parsedBody.codeSnippet,
-          status: "pending",
-          authorName: item.user?.login,
-        });
-      }
-
+      rawItems.push(...items);
       if (items.length < perPage) break;
       page += 1;
+    }
+
+    const idToNodeId = new Map<number, string>();
+    for (const item of rawItems) {
+      if (item.id != null && item.node_id != null) {
+        idToNodeId.set(item.id, item.node_id);
+      }
+    }
+
+    const commentIdToResolved = await fetchReviewThreadResolvedMap(
+      owner,
+      repo,
+      prNumber,
+      cwd
+    );
+
+    for (const item of rawItems) {
+      const path = item.path;
+      if (!path) continue;
+
+      const subjectType = item.subject_type;
+      const isFileLevel = subjectType === "file";
+      const line =
+        isFileLevel ? 1 : (item.line ?? item.original_line ?? 1);
+      const side =
+        item.side === "LEFT" ? ("LEFT" as const) : ("RIGHT" as const);
+      const nodeId = item.node_id ?? String(item.id ?? "");
+      const id = `host-gh-${nodeId}`;
+      const parsedBody = parseCommentBody(item.body ?? "");
+      const filePath = normalizePath(path);
+
+      const outdated =
+        !isFileLevel &&
+        (item.position == null ||
+          (item.line == null && item.original_line == null));
+
+      const parentNodeId =
+        item.in_reply_to_id != null
+          ? idToNodeId.get(item.in_reply_to_id)
+          : undefined;
+      const parentId =
+        parentNodeId != null ? `host-gh-${parentNodeId}` : undefined;
+
+      const resolved =
+        item.node_id != null
+          ? commentIdToResolved.get(item.node_id)
+          : undefined;
+
+      all.push({
+        id,
+        file: filePath,
+        line: typeof line === "number" ? line : 1,
+        side,
+        severity: "medium",
+        issue: parsedBody.issue,
+        suggestion: parsedBody.suggestion,
+        codeSnippet: parsedBody.codeSnippet,
+        status: "pending",
+        authorName: item.user?.login,
+        source: "host",
+        parentId,
+        outdated: outdated || undefined,
+        resolved: resolved === true ? true : undefined,
+      });
     }
 
     return all;

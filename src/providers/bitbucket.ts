@@ -250,6 +250,7 @@ export const bitbucketProvider: PRProvider = {
           anchor?: { path?: string; line?: number; line_type?: string };
           inline?: { path?: string; to?: number; from?: number };
           user?: { display_name?: string; username?: string };
+          parent?: { id: number };
         }>;
         next?: string;
       };
@@ -279,6 +280,9 @@ export const bitbucketProvider: PRProvider = {
         const side: "LEFT" | "RIGHT" =
           lineType === "removed" ? "LEFT" : "RIGHT";
 
+        const parentId =
+          item.parent?.id != null ? `host-bb-${item.parent.id}` : undefined;
+
         all.push({
           id: `host-bb-${item.id}`,
           file: normalizePath(path),
@@ -288,6 +292,8 @@ export const bitbucketProvider: PRProvider = {
           issue: (item.content?.raw || "").trim() || "(No content)",
           status: "pending",
           authorName: item.user?.display_name ?? item.user?.username,
+          source: "host",
+          parentId,
         });
       }
 

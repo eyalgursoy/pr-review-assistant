@@ -322,7 +322,7 @@ export async function activate(context: vscode.ExtensionContext) {
   initCommentController(context);
 
   // Create CodeLens provider (simplified - just shows line indicators)
-  const codeLensProvider = new ReviewCodeLensProvider();
+  const codeLensProvider = new ReviewCodeLensProvider(context);
   context.subscriptions.push(
     vscode.languages.registerCodeLensProvider(
       { scheme: "file" },
@@ -461,6 +461,17 @@ function registerCommands(context: vscode.ExtensionContext) {
       async (arg: ReviewComment | { comment?: ReviewComment } | unknown) => {
         const comment = resolveCommentArg(arg);
         if (comment) await goToComment(comment);
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "prReview.showOutdatedCommentMessage",
+      () => {
+        vscode.window.showInformationMessage(
+          "This comment is outdated or resolved; the code has changed."
+        );
       }
     )
   );
@@ -1135,6 +1146,12 @@ function resolveCommentArg(arg: unknown): ReviewComment | undefined {
  * Fix in Chat - open file, copy context, try to open Cursor chat
  */
 async function fixInChat(comment: ReviewComment) {
+  if (comment.outdated || comment.resolved) {
+    vscode.window.showInformationMessage(
+      "This comment is outdated or resolved; the code has changed."
+    );
+    return;
+  }
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   if (!workspaceFolder) {
     vscode.window.showWarningMessage("No workspace folder open");
@@ -1203,6 +1220,12 @@ Please fix the issue.`;
  * Generate AI suggestion and add to comment
  */
 async function generateSuggestionForComment(comment: ReviewComment) {
+  if (comment.outdated || comment.resolved) {
+    vscode.window.showInformationMessage(
+      "This comment is outdated or resolved; the code has changed."
+    );
+    return;
+  }
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   if (!workspaceFolder) {
     vscode.window.showWarningMessage("No workspace folder open");
@@ -1300,6 +1323,12 @@ async function viewDiffForComment(comment: ReviewComment) {
  * Navigate to a comment in the editor
  */
 async function goToComment(comment: ReviewComment) {
+  if (comment.outdated || comment.resolved) {
+    vscode.window.showInformationMessage(
+      "This comment is outdated or resolved; the code has changed."
+    );
+    return;
+  }
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   if (!workspaceFolder) return;
 

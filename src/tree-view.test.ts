@@ -37,6 +37,22 @@ vi.mock("vscode", () => ({
 vi.mock("./state", () => ({
   getState: () => mockGetState(),
   getAllComments: () => mockGetAllComments(),
+  getDisplayComments: () => mockGetAllComments(),
+  getRootCommentsForFile: (path: string) => {
+    const s = mockGetState();
+    const file = (s.files || []).find((f: { path: string }) => f.path === path);
+    const comments = file?.comments ?? [];
+    const display = mockGetAllComments();
+    const displayIds = new Set(display.map((c: { id: string }) => c.id));
+    return comments.filter(
+      (c: { id: string; parentId?: string }) =>
+        displayIds.has(c.id) && !c.parentId
+    );
+  },
+  getReplies: (id: string) =>
+    mockGetAllComments().filter(
+      (c: { parentId?: string }) => c.parentId === id
+    ),
   onStateChange: () => ({ dispose: () => {} }),
   allCommentsRejected: () => false,
 }));
@@ -295,6 +311,76 @@ describe("PRReviewTreeProvider", () => {
         comment: makeComment(),
       });
       expect(parent).toBeUndefined();
+    });
+
+    it("returns parent comment tree item for reply comment", () => {
+      const rootComment = makeComment({ id: "root1", issue: "Root issue" });
+      const replyComment = makeComment({
+        id: "reply1",
+        issue: "Reply text",
+        parentId: "root1",
+      });
+      const file = makeFile("src/foo.ts", [rootComment, replyComment]);
+      mockGetState.mockReturnValue({
+        pr: { number: 0, owner: "", repo: "", title: "", headBranch: "", baseBranch: "", url: "", host: "github" as const },
+        isLocalMode: false,
+        files: [file],
+        diff: "",
+        summary: null,
+        isLoading: false,
+        error: null,
+      } as ReviewState);
+      mockGetAllComments.mockReturnValue([rootComment, replyComment]);
+      const parent = provider.getParent({
+        type: "comment",
+        label: "Reply text",
+        comment: replyComment,
+      });
+      expect(parent).toBeDefined();
+      expect(parent!.type).toBe("comment");
+      expect(parent!.comment?.id).toBe("root1");
+    });
+  });
+
+  describe("getChildren reply hierarchy", () => {
+    it("returns only root comments under file", () => {
+      const root = makeComment({ id: "root1" });
+      const reply = makeComment({ id: "reply1", parentId: "root1" });
+      const file = makeFile("src/foo.ts", [root, reply]);
+      mockGetState.mockReturnValue({
+        pr: { number: 0, owner: "", repo: "", title: "", headBranch: "", baseBranch: "", url: "", host: "github" as const },
+        isLocalMode: false,
+        files: [file],
+        diff: "",
+        summary: null,
+        isLoading: false,
+        error: null,
+      } as ReviewState);
+      mockGetAllComments.mockReturnValue([root, reply]);
+      const fileElement = { type: "file" as const, label: "foo.ts", file };
+      const children = provider.getChildren(fileElement);
+      expect(children).toHaveLength(1);
+      expect(children[0].comment?.id).toBe("root1");
+    });
+
+    it("returns replies as children of root comment", () => {
+      const root = makeComment({ id: "root1", issue: "Root" });
+      const reply = makeComment({ id: "reply1", parentId: "root1", issue: "Reply" });
+      const file = makeFile("src/foo.ts", [root, reply]);
+      mockGetState.mockReturnValue({
+        pr: { number: 0, owner: "", repo: "", title: "", headBranch: "", baseBranch: "", url: "", host: "github" as const },
+        isLocalMode: false,
+        files: [file],
+        diff: "",
+        summary: null,
+        isLoading: false,
+        error: null,
+      } as ReviewState);
+      mockGetAllComments.mockReturnValue([root, reply]);
+      const rootElement = { type: "comment" as const, label: "Root", comment: root };
+      const children = provider.getChildren(rootElement);
+      expect(children).toHaveLength(1);
+      expect(children[0].comment?.id).toBe("reply1");
     });
   });
 });

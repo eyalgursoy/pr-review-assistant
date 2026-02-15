@@ -200,10 +200,57 @@ export function updateCommentText(commentId: string, editedText: string): void {
 }
 
 /**
- * Get all comments
+ * Get all comments (unfiltered)
  */
 export function getAllComments(): ReviewComment[] {
   return state.files.flatMap((f) => f.comments);
+}
+
+/**
+ * Get comments to display in tree, Comments panel, and CodeLens.
+ * Respects prReview.showResolvedOrOutdatedComments: when "hide", excludes
+ * outdated/resolved; when "showStruck", includes them (caller renders struck and non-actionable).
+ */
+export function getDisplayComments(): ReviewComment[] {
+  const all = getAllComments();
+  const mode = vscode.workspace
+    .getConfiguration("prReview")
+    .get<"hide" | "showStruck">("showResolvedOrOutdatedComments", "hide");
+  if (mode === "hide") {
+    return all.filter((c) => !c.outdated && !c.resolved);
+  }
+  return all;
+}
+
+/**
+ * Get comments to display for a specific file.
+ * Filters at the file level first, then applies display filter (resolved/outdated).
+ * Prefer this over getDisplayComments().filter(c => c.file === filePath) when only one file is needed.
+ */
+export function getDisplayCommentsForFile(filePath: string): ReviewComment[] {
+  const file = state.files.find((f) => f.path === filePath);
+  const fileComments = file?.comments ?? [];
+  const mode = vscode.workspace
+    .getConfiguration("prReview")
+    .get<"hide" | "showStruck">("showResolvedOrOutdatedComments", "hide");
+  if (mode === "hide") {
+    return fileComments.filter((c) => !c.outdated && !c.resolved);
+  }
+  return fileComments;
+}
+
+/**
+ * Root comments for a file (no parentId), from display list.
+ */
+export function getRootCommentsForFile(filePath: string): ReviewComment[] {
+  return getDisplayCommentsForFile(filePath).filter((c) => !c.parentId);
+}
+
+/**
+ * Replies to a comment (parentId === commentId), from display list.
+ */
+export function getReplies(commentId: string): ReviewComment[] {
+  return getDisplayComments().filter((c) => c.parentId === commentId);
 }
 
 /**

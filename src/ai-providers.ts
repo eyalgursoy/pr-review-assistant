@@ -460,6 +460,7 @@ function parseAIResponse(response: string): AIReviewResult {
           suggestion: f.suggestion ? sanitizeString(f.suggestion) : undefined,
           codeSnippet: f.codeSnippet ? sanitizeString(f.codeSnippet) : undefined,
           status: "pending" as const,
+          source: "ai" as const,
         };
       });
       log(`Successfully parsed ${comments.length} valid comments (schema)`);
@@ -521,6 +522,7 @@ function parseAIResponse(response: string): AIReviewResult {
         suggestion: f.suggestion ? sanitizeString(f.suggestion) : undefined,
         codeSnippet: f.codeSnippet ? sanitizeString(f.codeSnippet) : undefined,
         status: "pending",
+        source: "ai",
       });
     }
     log(`Successfully parsed ${comments.length} valid comments`);
@@ -561,6 +563,7 @@ function parseAIResponse(response: string): AIReviewResult {
             : undefined,
           codeSnippet: f.codeSnippet ? sanitizeString(String(f.codeSnippet)) : undefined,
           status: "pending" as const,
+          source: "ai" as const,
         }));
         return { summary: fallbackSummary, comments: fallbackComments };
       }
