@@ -8,7 +8,6 @@ import {
   getState,
   onStateChange,
   getAllComments,
-  getDisplayComments,
   getRootCommentsForFile,
   getReplies,
   allCommentsRejected,
@@ -106,8 +105,6 @@ export class PRReviewTreeProvider
       case "file": {
         const file = element.file!;
         const rootCount = getRootCommentsForFile(file.path).length;
-        const replyCount = file.comments.filter((c) => c.parentId).length;
-        const totalDisplay = getDisplayComments().filter((c) => c.file === file.path).length;
         item.iconPath = this.getFileIcon(file);
         item.description = element.description;
         item.collapsibleState =
@@ -340,12 +337,13 @@ export class PRReviewTreeProvider
         f.comments.some((c) => c.id === comment.id)
       );
       if (file) {
+        const rootCount = getRootCommentsForFile(file.path).length;
         return {
           type: "file" as TreeItemType,
           label: path.basename(file.path),
           description:
-            getRootCommentsForFile(file.path).length > 0
-              ? `${getRootCommentsForFile(file.path).length} comments`
+            rootCount > 0
+              ? `${rootCount} comments`
               : `+${file.additions} -${file.deletions}`,
           file,
         };

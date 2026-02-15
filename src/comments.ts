@@ -89,11 +89,13 @@ export function initCommentController(context: vscode.ExtensionContext): void {
     refreshCommentThreads();
   });
 
-  vscode.workspace.onDidChangeConfiguration((e) => {
-    if (e.affectsConfiguration("prReview.showResolvedOrOutdatedComments")) {
-      refreshCommentThreads();
-    }
-  });
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("prReview.showResolvedOrOutdatedComments")) {
+        refreshCommentThreads();
+      }
+    })
+  );
 
   // Initial refresh
   refreshCommentThreads();

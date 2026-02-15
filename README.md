@@ -32,7 +32,7 @@ cursor --install-extension pr-review-assistant-0.18.3.vsix
 code --install-extension pr-review-assistant-0.18.3.vsix
 ```
 
-Replace `0.18.0` with the version you downloaded if different.
+Replace `0.18.3` with the version you downloaded if different.
 
 ### Prerequisites
 
