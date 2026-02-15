@@ -26,13 +26,13 @@ Download the latest `.vsix` from [GitHub Releases](https://github.com/eyalgursoy
 
 ```bash
 # Install in Cursor
-cursor --install-extension pr-review-assistant-0.18.4.vsix
+cursor --install-extension pr-review-assistant-0.19.0.vsix
 
 # Or in VS Code
-code --install-extension pr-review-assistant-0.18.4.vsix
+code --install-extension pr-review-assistant-0.19.0.vsix
 ```
 
-Replace `0.18.3` with the version you downloaded if different.
+Replace `0.19.0` with the version you downloaded if different.
 
 ### Prerequisites
 

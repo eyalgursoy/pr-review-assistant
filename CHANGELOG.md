@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- GitHub PR comments: fetch review thread resolved state via GraphQL and set resolved on comments when loading.
+
 ### Fixed
 
 - Comments: sync native thread "Resolved" state back to extension state so marking a comment resolved in the editor persists and no longer reverts on refresh.
+- refreshCommentThreads: use continue instead of return when approving root so remaining threads still process.
 - Tests: type mock `ExtensionContext` explicitly in comment commands tests so the cast is visible if usage changes.
 - Comment body: apply strikethrough per paragraph so resolved/outdated text renders correctly when suggestion or code snippet are present.
 - CodeLens provider: track and dispose config/state listeners via `ExtensionContext` to avoid resource leak.
@@ -17,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - CodeLens and decorations use file-scoped `getDisplayCommentsForFile` so each editor only filters that file's comments instead of iterating all comments.
+- getRootCommentsForFile now uses getDisplayCommentsForFile for consistency.
 
 ## [0.18.0] - 2026-02
 
