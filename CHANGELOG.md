@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Cursor CLI workspace trust: when the CLI returns the "Workspace Trust Required" prompt instead of JSON, show a clear error explaining that IDE Trusted folders don't apply and how to approve the directory via `agent chat` in a terminal.
+
 ## [0.17.1] - 2026-02
 
 ### Fixed

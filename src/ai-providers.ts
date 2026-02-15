@@ -1194,6 +1194,19 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no code blocks, no explana
       log("Cursor CLI response preview (truncated):", response.substring(0, 200) + (response.length > 200 ? "..." : ""));
     }
 
+    // Cursor CLI has its own workspace trust check (separate from IDE Trusted folders).
+    // When it asks "Do you trust this directory?", that prompt is sent to stderr and
+    // returned as the only output, so we never get JSON. Detect and surface a clear error.
+    const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "this project";
+    if (
+      response &&
+      (response.includes("Workspace Trust Required") || response.includes("Do you trust the contents of this directory"))
+    ) {
+      throw new Error(
+        `Cursor CLI needs workspace approval for "${cwd}". The CLI uses its own trust check (IDE Trusted folders don't apply). Open a terminal, run: cd "${cwd}" && agent chat — then approve when prompted. After that, run the PR review again.`
+      );
+    }
+
     // Try to find JSON in the response (may be wrapped in markdown code blocks)
     // First try to extract from code blocks
     const codeBlockMatch = response.match(
@@ -1271,11 +1284,12 @@ IMPORTANT: Respond with ONLY valid JSON. No markdown, no code blocks, no explana
     }
 
     if (
-      errorMsg.includes("trust") ||
-      errorMsg.includes("workspace") ||
-      errorMsg.includes("directory")
+      (errorMsg.includes("trust") ||
+        errorMsg.includes("workspace") ||
+        errorMsg.includes("directory")) &&
+      !errorMsg.includes("IDE Trusted folders")
     ) {
-      // Workspace trust issue
+      // Workspace trust issue (generic; detailed message may already have been thrown above)
       throw new Error(
         "Cursor CLI needs workspace approval. Run 'agent chat' in terminal first to approve this directory."
       );
