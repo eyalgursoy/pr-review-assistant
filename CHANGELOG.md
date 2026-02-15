@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- CodeLens provider: track and dispose config/state listeners via `ExtensionContext` to avoid resource leak.
+
 ### Changed
 
 - CodeLens and decorations use file-scoped `getDisplayCommentsForFile` so each editor only filters that file's comments instead of iterating all comments.

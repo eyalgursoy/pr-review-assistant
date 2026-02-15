@@ -322,7 +322,7 @@ export async function activate(context: vscode.ExtensionContext) {
   initCommentController(context);
 
   // Create CodeLens provider (simplified - just shows line indicators)
-  const codeLensProvider = new ReviewCodeLensProvider();
+  const codeLensProvider = new ReviewCodeLensProvider(context);
   context.subscriptions.push(
     vscode.languages.registerCodeLensProvider(
       { scheme: "file" },

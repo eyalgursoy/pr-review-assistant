@@ -13,15 +13,19 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
   private _onDidChangeCodeLenses = new vscode.EventEmitter<void>();
   readonly onDidChangeCodeLenses = this._onDidChangeCodeLenses.event;
 
-  constructor() {
-    onStateChange(() => {
-      this._onDidChangeCodeLenses.fire();
-    });
-    vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("prReview.showResolvedOrOutdatedComments")) {
+  constructor(context: vscode.ExtensionContext) {
+    context.subscriptions.push(
+      onStateChange(() => {
         this._onDidChangeCodeLenses.fire();
-      }
-    });
+      })
+    );
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration("prReview.showResolvedOrOutdatedComments")) {
+          this._onDidChangeCodeLenses.fire();
+        }
+      })
+    );
   }
 
   provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
