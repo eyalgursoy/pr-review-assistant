@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import type * as vscode from "vscode";
 import { sanitizeMarkdownForDisplay } from "./markdown-utils";
 
 describe("sanitizeMarkdownForDisplay", () => {
@@ -76,7 +77,8 @@ describe("registerCommentCommands", () => {
     Object.keys(commandHandlers).forEach((k) => delete commandHandlers[k]);
   });
 
-  const createMockContext = () => ({ subscriptions: [] as { dispose(): void }[] });
+  const createMockContext = (): vscode.ExtensionContext =>
+    ({ subscriptions: [] as vscode.Disposable[] } as unknown as vscode.ExtensionContext);
 
   const makeReviewComment = (
     overrides: Partial<{ id: string; outdated: boolean; resolved: boolean }> = {}
