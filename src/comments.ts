@@ -102,9 +102,10 @@ export function initCommentController(context: vscode.ExtensionContext): void {
 }
 
 /**
- * Register commands for comment thread actions
+ * Register commands for comment thread actions.
+ * Exported for testing.
  */
-function registerCommentCommands(context: vscode.ExtensionContext): void {
+export function registerCommentCommands(context: vscode.ExtensionContext): void {
   // Approve comment (can receive thread or comment)
   context.subscriptions.push(
     vscode.commands.registerCommand(
@@ -117,15 +118,8 @@ function registerCommentCommands(context: vscode.ExtensionContext): void {
           );
           return;
         }
-        let commentId: string | undefined;
-        if ("comments" in arg) {
-          const comment = arg.comments[0] as PRReviewComment;
-          commentId = comment?.id;
-        } else {
-          commentId = arg.id;
-        }
-        if (commentId) {
-          updateCommentStatus(commentId, "approved");
+        if (reviewComment) {
+          updateCommentStatus(reviewComment.id, "approved");
           vscode.window.showInformationMessage("Comment approved ✓");
         }
       }
@@ -144,15 +138,8 @@ function registerCommentCommands(context: vscode.ExtensionContext): void {
           );
           return;
         }
-        let commentId: string | undefined;
-        if ("comments" in arg) {
-          const comment = arg.comments[0] as PRReviewComment;
-          commentId = comment?.id;
-        } else {
-          commentId = arg.id;
-        }
-        if (commentId) {
-          updateCommentStatus(commentId, "rejected");
+        if (reviewComment) {
+          updateCommentStatus(reviewComment.id, "rejected");
           vscode.window.showInformationMessage("Comment rejected ✗");
         }
       }
@@ -303,6 +290,8 @@ function refreshCommentThreads(): void {
     }
 
     const outdated = root.outdated || root.resolved;
+    const struck =
+      outdated || root.status === "approved" || root.status === "rejected";
     thread.label =
       getSeverityLabel(root.severity) + (outdated ? " (Outdated)" : "");
     thread.state = getThreadState(root.status);
@@ -317,21 +306,26 @@ function refreshCommentThreads(): void {
     const replies = getReplies(root.id);
     const threadComments: vscode.Comment[] = [
       new PRReviewComment(
-        formatCommentBody(root, outdated),
+        formatCommentBody(root, struck),
         vscode.CommentMode.Preview,
         getAuthorInfo(root),
         root,
         thread
       ),
-      ...replies.map((reply) =>
-        new PRReviewComment(
-          formatCommentBody(reply, reply.outdated || reply.resolved),
+      ...replies.map((reply) => {
+        const replyStruck =
+          reply.outdated ||
+          reply.resolved ||
+          reply.status === "approved" ||
+          reply.status === "rejected";
+        return new PRReviewComment(
+          formatCommentBody(reply, replyStruck),
           vscode.CommentMode.Preview,
           getAuthorInfo(reply),
           reply,
           thread
-        )
-      ),
+        );
+      }),
     ];
     thread.comments = threadComments;
   }
