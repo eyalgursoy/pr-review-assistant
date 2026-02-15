@@ -43,6 +43,44 @@ function formatCommentBody(comment: ReviewComment): string {
   return body;
 }
 
+/** Parse GitHub comment body into issue / suggestion / codeSnippet. */
+function parseCommentBody(body: string): {
+  issue: string;
+  suggestion?: string;
+  codeSnippet?: string;
+} {
+  const trimmed = (body || "").trim();
+  if (!trimmed) return { issue: "" };
+
+  let issue = trimmed;
+  let suggestion: string | undefined;
+  let codeSnippet: string | undefined;
+
+  const suggestionBlock = /```suggestion\s*\n([\s\S]*?)```/i.exec(trimmed);
+  if (suggestionBlock) {
+    codeSnippet = suggestionBlock[1].trim();
+    issue = issue.replace(suggestionBlock[0], "").trim();
+  }
+
+  const suggestionLabel = /\*\*Suggestion:\*\*\s*([\s\S]*?)(?=\n\n\*\*|\n```|$)/i.exec(
+    issue
+  );
+  if (suggestionLabel) {
+    suggestion = suggestionLabel[1].trim();
+    issue = issue.replace(suggestionLabel[0], "").trim();
+  }
+
+  if (!issue && suggestion) issue = suggestion;
+  return { issue: issue || trimmed, suggestion, codeSnippet };
+}
+
+function normalizePath(path: string): string {
+  if (path.startsWith("a/") || path.startsWith("b/")) {
+    return path.substring(2);
+  }
+  return path;
+}
+
 export const githubProvider: PRProvider = {
   host: "github",
 
@@ -209,6 +247,94 @@ export const githubProvider: PRProvider = {
     );
 
     return stdout;
+  },
+
+  async fetchPRComments(
+    owner: string,
+    repo: string,
+    prNumber: number
+  ): Promise<ReviewComment[]> {
+    validateOwnerRepo(owner, "owner");
+    validateOwnerRepo(repo, "repo");
+
+    const cwd = getWorkspacePath();
+    const all: ReviewComment[] = [];
+    const perPage = 100;
+    let page = 1;
+
+    type GhComment = {
+      id?: number;
+      node_id?: string;
+      path?: string;
+      line?: number | null;
+      original_line?: number | null;
+      side?: string;
+      body?: string;
+      user?: { login?: string } | null;
+      subject_type?: string;
+    };
+
+    while (true) {
+      const { stdout } = await runCommand(
+        "gh",
+        [
+          "api",
+          `repos/${owner}/${repo}/pulls/${prNumber}/comments`,
+          "-f",
+          `per_page=${perPage}`,
+          "-f",
+          `page=${page}`,
+        ],
+        { cwd }
+      );
+
+      let items: GhComment[];
+      try {
+        const parsed = JSON.parse(stdout || "[]");
+        items = Array.isArray(parsed) ? parsed : [parsed];
+      } catch (e) {
+        log(
+          `fetchPRComments gh parse error (truncated): ${(stdout || "").substring(0, 300)}`
+        );
+        break;
+      }
+
+      if (items.length === 0) break;
+
+      for (const item of items) {
+        const path = item.path;
+        if (!path) continue;
+
+        const subjectType = item.subject_type;
+        const isFileLevel = subjectType === "file";
+        const line =
+          isFileLevel ? 1 : (item.line ?? item.original_line ?? 1);
+        const side =
+          item.side === "LEFT" ? ("LEFT" as const) : ("RIGHT" as const);
+        const nodeId = item.node_id ?? String(item.id ?? "");
+        const id = `host-gh-${nodeId}`;
+        const parsedBody = parseCommentBody(item.body ?? "");
+        const filePath = normalizePath(path);
+
+        all.push({
+          id,
+          file: filePath,
+          line: typeof line === "number" ? line : 1,
+          side,
+          severity: "medium",
+          issue: parsedBody.issue,
+          suggestion: parsedBody.suggestion,
+          codeSnippet: parsedBody.codeSnippet,
+          status: "pending",
+          authorName: item.user?.login,
+        });
+      }
+
+      if (items.length < perPage) break;
+      page += 1;
+    }
+
+    return all;
   },
 
   async submitReviewComments(

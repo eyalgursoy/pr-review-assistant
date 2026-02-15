@@ -280,7 +280,7 @@ function refreshCommentThreads(): void {
     const prComment = new PRReviewComment(
       formatCommentBody(comment),
       vscode.CommentMode.Preview,
-      getAuthorInfo(comment.severity),
+      getAuthorInfo(comment),
       comment,
       thread
     );
@@ -355,13 +355,14 @@ function getSeverityLabel(severity: string): string {
 }
 
 /**
- * Get author info based on severity (for visual distinction)
+ * Get author info: uses authorName when present (e.g. host comment), otherwise AI Review (severity).
  */
-function getAuthorInfo(severity: string): vscode.CommentAuthorInformation {
-  const result: vscode.CommentAuthorInformation = {
-    name: `AI Review (${severity})`,
-  };
-  if (extensionUri) {
+function getAuthorInfo(comment: ReviewComment): vscode.CommentAuthorInformation {
+  const name = comment.authorName
+    ? comment.authorName
+    : `AI Review (${comment.severity})`;
+  const result: vscode.CommentAuthorInformation = { name };
+  if (!comment.authorName && extensionUri) {
     result.iconPath = vscode.Uri.joinPath(extensionUri, "resources", "sparkle.svg");
   }
   return result;

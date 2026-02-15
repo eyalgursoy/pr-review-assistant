@@ -43,6 +43,13 @@ export interface PRProvider {
     number: number
   ): Promise<string>;
 
+  /** Fetch existing inline review comments for the PR (optional). */
+  fetchPRComments?(
+    owner: string,
+    repo: string,
+    number: number
+  ): Promise<ReviewComment[]>;
+
   /** Post review comments (inline). */
   submitReviewComments(
     pr: PRInfo,

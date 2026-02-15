@@ -218,6 +218,86 @@ export const bitbucketProvider: PRProvider = {
     return res.text();
   },
 
+  async fetchPRComments(
+    owner: string,
+    repo: string,
+    number: number
+  ): Promise<ReviewComment[]> {
+    const token = await getToken();
+    if (!token) return [];
+
+    const all: ReviewComment[] = [];
+    let page = 1;
+    const pageLen = 100;
+
+    function normalizePath(p: string): string {
+      if (p.startsWith("a/") || p.startsWith("b/")) return p.substring(2);
+      return p;
+    }
+
+    while (true) {
+      const res = await bitbucketFetch(
+        `/repositories/${owner}/${repo}/pullrequests/${number}/comments?page=${page}&pagelen=${pageLen}`,
+        token
+      );
+
+      if (!res.ok) break;
+
+      const data = (await res.json()) as {
+        values?: Array<{
+          id: number;
+          content?: { raw?: string };
+          anchor?: { path?: string; line?: number; line_type?: string };
+          inline?: { path?: string; to?: number; from?: number };
+          user?: { display_name?: string; username?: string };
+        }>;
+        next?: string;
+      };
+
+      const values = data.values || [];
+      if (values.length === 0) break;
+
+      for (const item of values) {
+        const anchor = item.anchor ?? item.inline;
+        const path = anchor?.path;
+        if (!path) continue;
+
+        const a = anchor as
+          | { line?: number; line_type?: string }
+          | { to?: number; from?: number }
+          | undefined;
+        const line =
+          (a && "line" in a && a.line != null)
+            ? a.line
+            : (a && "to" in a && a.to != null)
+              ? a.to
+              : (a && "from" in a && a.from != null)
+                ? a.from
+                : 1;
+        const lineType =
+          a && "line_type" in a ? (a as { line_type?: string }).line_type : null;
+        const side: "LEFT" | "RIGHT" =
+          lineType === "removed" ? "LEFT" : "RIGHT";
+
+        all.push({
+          id: `host-bb-${item.id}`,
+          file: normalizePath(path),
+          line: typeof line === "number" ? line : 1,
+          side,
+          severity: "medium",
+          issue: (item.content?.raw || "").trim() || "(No content)",
+          status: "pending",
+          authorName: item.user?.display_name ?? item.user?.username,
+        });
+      }
+
+      if (!data.next || values.length < pageLen) break;
+      page += 1;
+    }
+
+    return all;
+  },
+
   async submitReviewComments(
     pr: PRInfo,
     comments: ReviewComment[],

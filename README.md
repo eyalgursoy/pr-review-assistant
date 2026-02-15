@@ -8,6 +8,7 @@ AI-powered PR code review extension for VS Code / Cursor. Lives in the **Source 
 - **AI Code Review**: Supports Cursor CLI, Claude, GPT-4, Gemini, Groq, and more
 - **Inline Annotations**: CodeLens shows comments directly on code lines
 - **GitHub, GitLab & Bitbucket**: Paste a PR/MR URL to load, run AI review, and submit comments (GitHub via `gh` CLI; GitLab and Bitbucket via token)
+- **Load existing PR comments**: When you load a PR, inline review comments from the host are fetched and shown in the IDE (Comments panel, tree, CodeLens), so you can use **Fix in Chat** and other actions on reviewer feedback
 - **One-Click Workflow**: Start review → AI analyzes → Review comments → Submit
 - **No API Key Needed**: Use Cursor CLI with your existing Cursor subscription!
 - **Secure API Key Storage**: API keys and host tokens stored in VS Code SecretStorage (OS credential manager) instead of plain text settings
@@ -25,13 +26,13 @@ Download the latest `.vsix` from [GitHub Releases](https://github.com/eyalgursoy
 
 ```bash
 # Install in Cursor
-cursor --install-extension pr-review-assistant-0.16.1.vsix
+cursor --install-extension pr-review-assistant-0.17.0.vsix
 
 # Or in VS Code
-code --install-extension pr-review-assistant-0.16.1.vsix
+code --install-extension pr-review-assistant-0.17.0.vsix
 ```
 
-Replace `0.16.1` with the version you downloaded if different.
+Replace `0.17.0` with the version you downloaded if different.
 
 ### Prerequisites
 

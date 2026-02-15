@@ -42,6 +42,8 @@ export interface ReviewComment {
   codeSnippet?: string;
   status: CommentStatus;
   editedText?: string;
+  /** When set, shown in IDE instead of "AI Review (severity)" (e.g. host comment author). */
+  authorName?: string;
 }
 
 /** Supported git hosts for PR/MR review */

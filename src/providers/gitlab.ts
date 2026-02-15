@@ -229,6 +229,89 @@ export const gitlabProvider: PRProvider = {
     return changes.map((c) => c.diff || "").join("\n\n");
   },
 
+  async fetchPRComments(
+    owner: string,
+    repo: string,
+    number: number
+  ): Promise<ReviewComment[]> {
+    const token = await getToken();
+    if (!token) return [];
+
+    const baseUrl = getBaseUrl();
+    const projId = projectId(owner, repo);
+    const all: ReviewComment[] = [];
+    let page = 1;
+    const perPage = 100;
+
+    function normalizePath(p: string): string {
+      if (p.startsWith("a/") || p.startsWith("b/")) return p.substring(2);
+      return p;
+    }
+
+    while (true) {
+      const res = await gitlabFetch(
+        baseUrl,
+        token,
+        `/projects/${projId}/merge_requests/${number}/discussions?per_page=${perPage}&page=${page}`
+      );
+
+      if (!res.ok) break;
+
+      const discussions = (await res.json()) as Array<{
+        notes?: Array<{
+          id: number;
+          body?: string;
+          author?: { username?: string };
+          position?: {
+            new_path?: string;
+            old_path?: string;
+            new_line?: number | null;
+            old_line?: number | null;
+          };
+        }>;
+      }>;
+
+      if (!Array.isArray(discussions) || discussions.length === 0) break;
+
+      for (const discussion of discussions) {
+        const notes = discussion.notes || [];
+        for (const note of notes) {
+          const position = note.position;
+          if (!position) continue;
+
+          const newPath = position.new_path ?? position.old_path;
+          const oldPath = position.old_path ?? position.new_path;
+          if (!newPath && !oldPath) continue;
+
+          const path = normalizePath(newPath || oldPath || "");
+          const newLine = position.new_line;
+          const oldLine = position.old_line;
+          const hasNew = newLine != null && newLine > 0;
+          const hasOld = oldLine != null && oldLine > 0;
+
+          const side: "LEFT" | "RIGHT" = hasNew ? "RIGHT" : "LEFT";
+          const line = hasNew ? (newLine ?? 1) : (hasOld ? (oldLine ?? 1) : 1);
+
+          all.push({
+            id: `host-gl-${note.id}`,
+            file: path,
+            line: typeof line === "number" ? line : 1,
+            side,
+            severity: "medium",
+            issue: (note.body || "").trim() || "(No content)",
+            status: "pending",
+            authorName: note.author?.username,
+          });
+        }
+      }
+
+      if (discussions.length < perPage) break;
+      page += 1;
+    }
+
+    return all;
+  },
+
   async submitReviewComments(
     pr: PRInfo,
     comments: ReviewComment[],

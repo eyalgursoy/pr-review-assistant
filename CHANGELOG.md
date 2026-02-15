@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Load existing PR comments**: When loading a PR, the extension fetches inline review comments from the host (GitHub, GitLab, Bitbucket) and displays them in the IDE (Comments panel, tree view, CodeLens). You can use Fix in Chat and other comment actions on reviewer feedback.
+
 ## [0.16.1] - 2025-02
 
 ### Fixed

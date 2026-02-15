@@ -659,6 +659,25 @@ async function startReview() {
     );
     setDiff(diff);
 
+    if (provider.fetchPRComments) {
+      try {
+        updateStage("loading-diff", "Loading PR comments...");
+        const hostComments = await provider.fetchPRComments(
+          parsed.owner,
+          parsed.repo,
+          parsed.number
+        );
+        if (hostComments.length > 0) {
+          addComments(hostComments);
+        }
+      } catch (err) {
+        log(
+          "fetchPRComments failed (continuing without host comments):",
+          err instanceof Error ? err.message : String(err)
+        );
+      }
+    }
+
     setLoading(false);
     resetProgress(); // Clear progress when done loading
 
