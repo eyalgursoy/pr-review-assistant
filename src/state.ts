@@ -243,13 +243,7 @@ export function getDisplayCommentsForFile(filePath: string): ReviewComment[] {
  * Root comments for a file (no parentId), from display list.
  */
 export function getRootCommentsForFile(filePath: string): ReviewComment[] {
-  const file = state.files.find((f) => f.path === filePath);
-  const fileComments = file?.comments ?? [];
-  const display = getDisplayComments();
-  const displayIds = new Set(display.map((c) => c.id));
-  return fileComments.filter(
-    (c) => displayIds.has(c.id) && !c.parentId
-  );
+  return getDisplayCommentsForFile(filePath).filter((c) => !c.parentId);
 }
 
 /**

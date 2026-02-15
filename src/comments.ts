@@ -283,7 +283,7 @@ function refreshCommentThreads(): void {
       root.status === "pending"
     ) {
       updateCommentStatus(root.id, "approved");
-      return; // state change will trigger refresh again with updated status
+      continue; // state change will trigger refresh again with updated status
     }
 
     if (!thread) {
@@ -375,7 +375,10 @@ function formatCommentBody(
 
   if (comment.editedText?.trim()) {
     const body = sanitizeMarkdownForDisplay(comment.editedText);
-    md.appendMarkdown(struck ? `~~${body}~~` : body);
+    const formatted = struck
+      ? body.split('\n\n').map((p) => (p.trim() ? "~~" + p + "~~" : p)).join("\n\n")
+      : body;
+    md.appendMarkdown(formatted);
     return md;
   }
 

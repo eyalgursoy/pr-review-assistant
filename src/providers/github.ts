@@ -81,6 +81,86 @@ function normalizePath(path: string): string {
   return path;
 }
 
+/**
+ * Fetches thread-level isResolved for PR review threads via GraphQL.
+ * Returns a map from comment node_id to resolved (true only when thread is resolved).
+ * On failure (e.g. permissions or network), returns an empty map so REST-based fetch still works.
+ */
+async function fetchReviewThreadResolvedMap(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  cwd: string | undefined
+): Promise<Map<string, boolean>> {
+  const map = new Map<string, boolean>();
+  const query =
+    "query($owner: String!, $repo: String!, $number: Int!, $cursor: String) { repository(owner: $owner, name: $repo) { pullRequest(number: $number) { reviewThreads(first: 100, after: $cursor) { nodes { isResolved comments(first: 100) { nodes { id } } } pageInfo { hasNextPage endCursor } } } } }";
+  let cursor: string | null = null;
+
+  try {
+    for (;;) {
+      const args = [
+        "api",
+        "graphql",
+        "-f",
+        `query=${query}`,
+        "-f",
+        `owner=${owner}`,
+        "-f",
+        `repo=${repo}`,
+        "-F",
+        `number=${prNumber}`,
+      ];
+      if (cursor != null) {
+        args.push("-f", `cursor=${cursor}`);
+      }
+      const { stdout } = await runCommand("gh", args, { cwd });
+      const data = JSON.parse(stdout || "{}") as {
+        data?: {
+          repository?: {
+            pullRequest?: {
+              reviewThreads?: {
+                nodes?: Array<{
+                  isResolved?: boolean;
+                  comments?: { nodes?: Array<{ id?: string }> };
+                }>;
+                pageInfo?: { hasNextPage?: boolean; endCursor?: string };
+              };
+            };
+          };
+        };
+        errors?: Array<{ message?: string }>;
+      };
+      if (data.errors?.length) {
+        log(
+          `fetchReviewThreadResolvedMap GraphQL errors: ${JSON.stringify(data.errors)}`
+        );
+        break;
+      }
+      const threads =
+        data.data?.repository?.pullRequest?.reviewThreads?.nodes ?? [];
+      const pageInfo =
+        data.data?.repository?.pullRequest?.reviewThreads?.pageInfo;
+
+      for (const thread of threads) {
+        const resolved = thread.isResolved === true;
+        const commentIds = thread.comments?.nodes ?? [];
+        for (const node of commentIds) {
+          if (node.id) map.set(node.id, resolved);
+        }
+      }
+
+      if (!pageInfo?.hasNextPage || !pageInfo?.endCursor) break;
+      cursor = pageInfo.endCursor;
+    }
+  } catch (e) {
+    log(
+      `fetchReviewThreadResolvedMap failed (resolved state will be unknown): ${e instanceof Error ? e.message : String(e)}`
+    );
+  }
+  return map;
+}
+
 export const githubProvider: PRProvider = {
   host: "github",
 
@@ -319,6 +399,13 @@ export const githubProvider: PRProvider = {
       }
     }
 
+    const commentIdToResolved = await fetchReviewThreadResolvedMap(
+      owner,
+      repo,
+      prNumber,
+      cwd
+    );
+
     for (const item of rawItems) {
       const path = item.path;
       if (!path) continue;
@@ -346,6 +433,11 @@ export const githubProvider: PRProvider = {
       const parentId =
         parentNodeId != null ? `host-gh-${parentNodeId}` : undefined;
 
+      const resolved =
+        item.node_id != null
+          ? commentIdToResolved.get(item.node_id)
+          : undefined;
+
       all.push({
         id,
         file: filePath,
@@ -360,6 +452,7 @@ export const githubProvider: PRProvider = {
         source: "host",
         parentId,
         outdated: outdated || undefined,
+        resolved: resolved === true ? true : undefined,
       });
     }
 
