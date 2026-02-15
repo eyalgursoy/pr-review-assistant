@@ -223,6 +223,23 @@ export function getDisplayComments(): ReviewComment[] {
 }
 
 /**
+ * Get comments to display for a specific file.
+ * Filters at the file level first, then applies display filter (resolved/outdated).
+ * Prefer this over getDisplayComments().filter(c => c.file === filePath) when only one file is needed.
+ */
+export function getDisplayCommentsForFile(filePath: string): ReviewComment[] {
+  const file = state.files.find((f) => f.path === filePath);
+  const fileComments = file?.comments ?? [];
+  const mode = vscode.workspace
+    .getConfiguration("prReview")
+    .get<"hide" | "showStruck">("showResolvedOrOutdatedComments", "hide");
+  if (mode === "hide") {
+    return fileComments.filter((c) => !c.outdated && !c.resolved);
+  }
+  return fileComments;
+}
+
+/**
  * Root comments for a file (no parentId), from display list.
  */
 export function getRootCommentsForFile(filePath: string): ReviewComment[] {

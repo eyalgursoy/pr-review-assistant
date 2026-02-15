@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- CodeLens and decorations use file-scoped `getDisplayCommentsForFile` so each editor only filters that file's comments instead of iterating all comments.
+
 ## [0.18.0] - 2026-02
 
 ### Added

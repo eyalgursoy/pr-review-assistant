@@ -6,7 +6,7 @@
  */
 
 import * as vscode from "vscode";
-import { getDisplayComments, onStateChange } from "./state";
+import { getDisplayCommentsForFile, onStateChange } from "./state";
 import { sanitizeMarkdownForDisplay } from "./markdown-utils";
 
 export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
@@ -26,7 +26,7 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
 
   provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
     const filePath = this.getRelativePath(document.uri);
-    const comments = getDisplayComments().filter((c) => c.file === filePath);
+    const comments = getDisplayCommentsForFile(filePath);
 
     if (comments.length === 0) {
       return [];
@@ -132,7 +132,7 @@ export function updateDecorations(
   decorations: ReturnType<typeof createCommentDecorations>
 ): void {
   const filePath = vscode.workspace.asRelativePath(editor.document.uri, false);
-  const comments = getDisplayComments().filter((c) => c.file === filePath);
+  const comments = getDisplayCommentsForFile(filePath);
 
   const pending: vscode.DecorationOptions[] = [];
   const approved: vscode.DecorationOptions[] = [];
