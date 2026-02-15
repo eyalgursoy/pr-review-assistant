@@ -671,9 +671,10 @@ async function startReview() {
           addComments(hostComments);
         }
       } catch (err) {
-        log(
-          "fetchPRComments failed (continuing without host comments):",
-          err instanceof Error ? err.message : String(err)
+        const msg = err instanceof Error ? err.message : String(err);
+        log("fetchPRComments failed (continuing without host comments):", msg);
+        vscode.window.showWarningMessage(
+          `PR comments could not be loaded: ${msg}. Run "PR Review: Show Log" for details.`
         );
       }
     }

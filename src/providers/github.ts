@@ -275,26 +275,31 @@ export const githubProvider: PRProvider = {
     };
 
     while (true) {
+      // Query string for pagination; -f would send body and GET list endpoint returns 422
+      const url = `repos/${owner}/${repo}/pulls/${prNumber}/comments?per_page=${perPage}&page=${page}`;
       const { stdout } = await runCommand(
         "gh",
-        [
-          "api",
-          `repos/${owner}/${repo}/pulls/${prNumber}/comments`,
-          "-f",
-          `per_page=${perPage}`,
-          "-f",
-          `page=${page}`,
-        ],
+        ["api", url],
         { cwd }
       );
 
       let items: GhComment[];
       try {
         const parsed = JSON.parse(stdout || "[]");
-        items = Array.isArray(parsed) ? parsed : [parsed];
+        if (Array.isArray(parsed)) {
+          items = parsed;
+        } else if (
+          parsed &&
+          typeof parsed === "object" &&
+          "message" in parsed
+        ) {
+          break;
+        } else {
+          items = [parsed];
+        }
       } catch (e) {
         log(
-          `fetchPRComments gh parse error (truncated): ${(stdout || "").substring(0, 300)}`
+          `fetchPRComments parse error (truncated): ${(stdout || "").substring(0, 300)}`
         );
         break;
       }

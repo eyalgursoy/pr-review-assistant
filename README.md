@@ -26,13 +26,13 @@ Download the latest `.vsix` from [GitHub Releases](https://github.com/eyalgursoy
 
 ```bash
 # Install in Cursor
-cursor --install-extension pr-review-assistant-0.17.0.vsix
+cursor --install-extension pr-review-assistant-0.17.1.vsix
 
 # Or in VS Code
-code --install-extension pr-review-assistant-0.17.0.vsix
+code --install-extension pr-review-assistant-0.17.1.vsix
 ```
 
-Replace `0.17.0` with the version you downloaded if different.
+Replace `0.17.1` with the version you downloaded if different.
 
 ### Prerequisites
 
@@ -114,6 +114,10 @@ When you open a file with comments, you'll see:
 export async function fetchData() {
   const response = await fetch(url);  // ← Comment appears here
 ```
+
+### Debugging (PR comments not loading?)
+
+Run **PR Review: Show Log** (Cmd+Shift+P) and load the PR again; any error when fetching comments will appear there. Only **inline** review comments (on specific diff lines) are loaded, not general PR discussion.
 
 ## Configuration
 

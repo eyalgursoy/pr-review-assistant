@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-02
+
+### Fixed
+
+- GitHub PR comments fetch: use query string for pagination instead of request body so the list endpoint no longer returns 422.
+
+### Changed
+
+- Reduced debug logging for PR comments load; failure still logged and user notified.
+
+## [0.17.0] - 2026-02
+
 ### Added
 
 - **Load existing PR comments**: When loading a PR, the extension fetches inline review comments from the host (GitHub, GitLab, Bitbucket) and displays them in the IDE (Comments panel, tree view, CodeLens). You can use Fix in Chat and other comment actions on reviewer feedback.
