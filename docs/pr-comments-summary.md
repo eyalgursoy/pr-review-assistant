@@ -107,6 +107,32 @@ Added a VS Code setting to control visibility of host-resolved/outdated comments
 
 **Test Results:** 195/195 tests pass
 
+### Task 6: Comments Panel Threading
+
+**Branch:** `task/6-comments-panel-threading`
+**Date:** 2026-02-18
+
+**Changes Made:**
+
+Rewrote comment thread management: one thread per root comment with replies grouped, display-filtered, and fixed strikethrough behavior:
+
+- **`refreshCommentThreads`** now uses `getDisplayComments()` (respects the `showResolvedOrOutdated` setting), filters to root comments only, groups replies into their parent thread's `comments` array
+- **`getThreadState`** signature changed from `(status: CommentStatus)` to `(comment: ReviewComment)` — now returns `Resolved` (strikethrough) ONLY for `hostResolved` or `hostOutdated` comments. Locally approved/rejected comments stay `Unresolved` (no strikethrough). This was a significant behavioral fix — previously approving/rejecting a comment caused strikethrough which is incorrect
+- `getThreadState` exported for direct unit testing
+
+**Files Modified:**
+- `src/comments.ts` — added `getDisplayComments` import; rewrote `refreshCommentThreads` for root+reply grouping; changed `getThreadState` signature and logic; exported `getThreadState`
+- `src/comments.test.ts` — added vscode mock with `CommentThreadState`, `MarkdownString.appendMarkdown`, etc.; added 7 tests for `getThreadState` covering all combinations of host and local states
+
+**Key Decisions:**
+- `getThreadState` is now exported as a named export so tests can exercise it directly without needing to mock the full `CommentController` lifecycle
+- Thread `contextValue` and `collapsibleState` are keyed off the root comment's local `status`, not host state — this controls which menu buttons appear (approve/reject only for pending)
+- Replies inherit the thread from their root, so all reply comments share the same thread position in the editor
+
+**Test Results:** 243/243 tests pass
+
+---
+
 ### Task 5: Tree View Hierarchy
 
 **Branch:** `task/5-tree-view-hierarchy`
