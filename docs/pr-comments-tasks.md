@@ -94,19 +94,19 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 **Branch:** `task/4-gitlab-bitbucket-providers`
 
-- [ ] Branch created
-- [ ] GitLab provider sets `source: 'host'`
-- [ ] GitLab provider sets `hostResolved` from `discussion.resolved`
-- [ ] GitLab provider sets `hostOutdated` when position is null
-- [ ] GitLab provider sets `parentId` for reply notes
-- [ ] Bitbucket provider sets `source: 'host'`
-- [ ] Bitbucket provider sets `parentId` from `comment.parent.id`
-- [ ] Tests added for both providers
-- [ ] `npm run build` passes
-- [ ] `npm test` passes
-- [ ] `npm run package` creates .vsix
-- [ ] Changes committed with proper message
-- [ ] `docs/pr-comments-summary.md` updated
+- [x] Branch created
+- [x] GitLab provider sets `source: 'host'`
+- [x] GitLab provider sets `hostResolved` from `discussion.resolved`
+- [x] GitLab provider sets `hostOutdated` when position is null
+- [x] GitLab provider sets `parentId` for reply notes
+- [x] Bitbucket provider sets `source: 'host'`
+- [x] Bitbucket provider sets `parentId` from `comment.parent.id`
+- [x] Tests added for both providers
+- [x] `npm run build` passes
+- [x] `npm test` passes (226/226)
+- [x] `npm run package` creates .vsix
+- [x] Changes committed with proper message
+- [x] `docs/pr-comments-summary.md` updated
 
 ---
 

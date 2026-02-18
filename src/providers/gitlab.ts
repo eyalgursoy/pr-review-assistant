@@ -62,6 +62,78 @@ function formatCommentBody(comment: ReviewComment): string {
   return body;
 }
 
+export type GlNote = {
+  id: number;
+  body?: string;
+  author?: { username?: string };
+  position?: {
+    new_path?: string;
+    old_path?: string;
+    new_line?: number | null;
+    old_line?: number | null;
+  } | null;
+};
+
+export type GlDiscussion = {
+  notes?: GlNote[];
+  resolved?: boolean;
+};
+
+function normalizeGlPath(p: string): string {
+  if (p.startsWith("a/") || p.startsWith("b/")) return p.substring(2);
+  return p;
+}
+
+/** Map an array of GitLab discussions to ReviewComment[]. */
+export function mapGitLabDiscussions(discussions: GlDiscussion[]): ReviewComment[] {
+  const results: ReviewComment[] = [];
+
+  for (const discussion of discussions) {
+    const notes = discussion.notes || [];
+    const rootNote = notes[0];
+    if (!rootNote) continue;
+    const rootId = `host-gl-${rootNote.id}`;
+
+    for (let i = 0; i < notes.length; i++) {
+      const note = notes[i];
+      const position = note.position;
+
+      const hasPosition = position != null;
+      const newPath = position?.new_path ?? position?.old_path;
+      const oldPath = position?.old_path ?? position?.new_path;
+      if (!hasPosition && !newPath && !oldPath) continue;
+
+      const path = normalizeGlPath(newPath || oldPath || "");
+      if (!path) continue;
+
+      const newLine = position?.new_line;
+      const oldLine = position?.old_line;
+      const hasNew = newLine != null && newLine > 0;
+      const hasOld = oldLine != null && oldLine > 0;
+
+      const side: "LEFT" | "RIGHT" = hasNew ? "RIGHT" : "LEFT";
+      const line = hasNew ? (newLine ?? 1) : hasOld ? (oldLine ?? 1) : 1;
+
+      results.push({
+        id: `host-gl-${note.id}`,
+        file: path,
+        line: typeof line === "number" ? line : 1,
+        side,
+        severity: "medium",
+        issue: (note.body || "").trim() || "(No content)",
+        status: "pending",
+        authorName: note.author?.username,
+        source: "host",
+        hostOutdated: !hasPosition,
+        hostResolved: discussion.resolved ?? false,
+        parentId: i > 0 ? rootId : undefined,
+      });
+    }
+  }
+
+  return results;
+}
+
 export const gitlabProvider: PRProvider = {
   host: "gitlab",
 
@@ -243,11 +315,6 @@ export const gitlabProvider: PRProvider = {
     let page = 1;
     const perPage = 100;
 
-    function normalizePath(p: string): string {
-      if (p.startsWith("a/") || p.startsWith("b/")) return p.substring(2);
-      return p;
-    }
-
     while (true) {
       const res = await gitlabFetch(
         baseUrl,
@@ -257,54 +324,10 @@ export const gitlabProvider: PRProvider = {
 
       if (!res.ok) break;
 
-      const discussions = (await res.json()) as Array<{
-        notes?: Array<{
-          id: number;
-          body?: string;
-          author?: { username?: string };
-          position?: {
-            new_path?: string;
-            old_path?: string;
-            new_line?: number | null;
-            old_line?: number | null;
-          };
-        }>;
-      }>;
-
+      const discussions = (await res.json()) as GlDiscussion[];
       if (!Array.isArray(discussions) || discussions.length === 0) break;
 
-      for (const discussion of discussions) {
-        const notes = discussion.notes || [];
-        for (const note of notes) {
-          const position = note.position;
-          if (!position) continue;
-
-          const newPath = position.new_path ?? position.old_path;
-          const oldPath = position.old_path ?? position.new_path;
-          if (!newPath && !oldPath) continue;
-
-          const path = normalizePath(newPath || oldPath || "");
-          const newLine = position.new_line;
-          const oldLine = position.old_line;
-          const hasNew = newLine != null && newLine > 0;
-          const hasOld = oldLine != null && oldLine > 0;
-
-          const side: "LEFT" | "RIGHT" = hasNew ? "RIGHT" : "LEFT";
-          const line = hasNew ? (newLine ?? 1) : (hasOld ? (oldLine ?? 1) : 1);
-
-          all.push({
-            id: `host-gl-${note.id}`,
-            file: path,
-            line: typeof line === "number" ? line : 1,
-            side,
-            severity: "medium",
-            issue: (note.body || "").trim() || "(No content)",
-            status: "pending",
-            authorName: note.author?.username,
-            source: "host" as const,
-          });
-        }
-      }
+      all.push(...mapGitLabDiscussions(discussions));
 
       if (discussions.length < perPage) break;
       page += 1;

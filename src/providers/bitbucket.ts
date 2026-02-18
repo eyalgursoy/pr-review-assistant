@@ -67,6 +67,66 @@ function formatCommentBody(comment: ReviewComment): string {
   return body;
 }
 
+export type BbComment = {
+  id: number;
+  content?: { raw?: string };
+  anchor?: { path?: string; line?: number; line_type?: string };
+  inline?: { path?: string; to?: number; from?: number };
+  user?: { display_name?: string; username?: string };
+  parent?: { id: number };
+  deleted?: boolean;
+};
+
+function normalizeBbPath(p: string): string {
+  if (p.startsWith("a/") || p.startsWith("b/")) return p.substring(2);
+  return p;
+}
+
+/** Map an array of raw Bitbucket comments to ReviewComment[]. */
+export function mapBitbucketComments(items: BbComment[]): ReviewComment[] {
+  const results: ReviewComment[] = [];
+
+  for (const item of items) {
+    const anchor = item.anchor ?? item.inline;
+    const path = anchor?.path;
+    if (!path) continue;
+
+    const a = anchor as
+      | { line?: number; line_type?: string }
+      | { to?: number; from?: number }
+      | undefined;
+    const line =
+      (a && "line" in a && a.line != null)
+        ? a.line
+        : (a && "to" in a && a.to != null)
+          ? a.to
+          : (a && "from" in a && a.from != null)
+            ? a.from
+            : 1;
+    const lineType =
+      a && "line_type" in a ? (a as { line_type?: string }).line_type : null;
+    const side: "LEFT" | "RIGHT" =
+      lineType === "removed" ? "LEFT" : "RIGHT";
+
+    results.push({
+      id: `host-bb-${item.id}`,
+      file: normalizeBbPath(path),
+      line: typeof line === "number" ? line : 1,
+      side,
+      severity: "medium",
+      issue: (item.content?.raw || "").trim() || "(No content)",
+      status: "pending",
+      authorName: item.user?.display_name ?? item.user?.username,
+      source: "host",
+      hostOutdated: item.deleted ?? false,
+      hostResolved: false,
+      parentId: item.parent?.id ? `host-bb-${item.parent.id}` : undefined,
+    });
+  }
+
+  return results;
+}
+
 export const bitbucketProvider: PRProvider = {
   host: "bitbucket",
 
@@ -230,11 +290,6 @@ export const bitbucketProvider: PRProvider = {
     let page = 1;
     const pageLen = 100;
 
-    function normalizePath(p: string): string {
-      if (p.startsWith("a/") || p.startsWith("b/")) return p.substring(2);
-      return p;
-    }
-
     while (true) {
       const res = await bitbucketFetch(
         `/repositories/${owner}/${repo}/pullrequests/${number}/comments?page=${page}&pagelen=${pageLen}`,
@@ -244,53 +299,14 @@ export const bitbucketProvider: PRProvider = {
       if (!res.ok) break;
 
       const data = (await res.json()) as {
-        values?: Array<{
-          id: number;
-          content?: { raw?: string };
-          anchor?: { path?: string; line?: number; line_type?: string };
-          inline?: { path?: string; to?: number; from?: number };
-          user?: { display_name?: string; username?: string };
-        }>;
+        values?: BbComment[];
         next?: string;
       };
 
       const values = data.values || [];
       if (values.length === 0) break;
 
-      for (const item of values) {
-        const anchor = item.anchor ?? item.inline;
-        const path = anchor?.path;
-        if (!path) continue;
-
-        const a = anchor as
-          | { line?: number; line_type?: string }
-          | { to?: number; from?: number }
-          | undefined;
-        const line =
-          (a && "line" in a && a.line != null)
-            ? a.line
-            : (a && "to" in a && a.to != null)
-              ? a.to
-              : (a && "from" in a && a.from != null)
-                ? a.from
-                : 1;
-        const lineType =
-          a && "line_type" in a ? (a as { line_type?: string }).line_type : null;
-        const side: "LEFT" | "RIGHT" =
-          lineType === "removed" ? "LEFT" : "RIGHT";
-
-        all.push({
-          id: `host-bb-${item.id}`,
-          file: normalizePath(path),
-          line: typeof line === "number" ? line : 1,
-          side,
-          severity: "medium",
-          issue: (item.content?.raw || "").trim() || "(No content)",
-          status: "pending",
-          authorName: item.user?.display_name ?? item.user?.username,
-          source: "host" as const,
-        });
-      }
+      all.push(...mapBitbucketComments(values));
 
       if (!data.next || values.length < pageLen) break;
       page += 1;

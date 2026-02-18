@@ -107,6 +107,41 @@ Added a VS Code setting to control visibility of host-resolved/outdated comments
 
 **Test Results:** 195/195 tests pass
 
+### Task 4: GitLab and Bitbucket Providers
+
+**Branch:** `task/4-gitlab-bitbucket-providers`
+**Date:** 2026-02-18
+
+**Changes Made:**
+
+Extracted testable mapping functions for GitLab and Bitbucket providers and added all host fields:
+
+**GitLab:**
+- Exported `GlNote`, `GlDiscussion` types and `mapGitLabDiscussions()` function
+- `hostResolved` set from `discussion.resolved` (GitLab has per-discussion resolution)
+- `hostOutdated` set to `true` when `note.position` is null/undefined (note is still skipped if no path can be determined)
+- `parentId` set for non-first notes in a discussion, pointing to the root note's ID
+
+**Bitbucket:**
+- Exported `BbComment` type and `mapBitbucketComments()` function
+- `hostOutdated` set from `comment.deleted` field (approximate — Bitbucket doesn't have a direct outdated concept)
+- `hostResolved` always `false` (Bitbucket has no thread resolution)
+- `parentId` set from `comment.parent.id`
+
+**Files Modified:**
+- `src/providers/gitlab.ts` — extracted `GlNote`, `GlDiscussion`, `mapGitLabDiscussions()`; updated `fetchPRComments` to delegate to it
+- `src/providers/bitbucket.ts` — extracted `BbComment`, `mapBitbucketComments()`; updated `fetchPRComments` to delegate to it
+- `src/gitlab-bitbucket.test.ts` (new) — 20 tests: 10 for GitLab, 10 for Bitbucket
+
+**Key Decisions:**
+- Same pattern as GitHub: extracted mapping into exported standalone functions for testability
+- GitLab notes with null position AND no resolvable path are skipped (general discussion notes, not inline diff notes)
+- Bitbucket uses `deleted` as the best approximation for outdated since the API doesn't have a direct concept
+
+**Test Results:** 226/226 tests pass
+
+---
+
 ### Task 3: GitHub Provider Host Fields
 
 **Branch:** `task/3-github-provider-host-fields`
