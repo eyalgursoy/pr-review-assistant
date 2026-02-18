@@ -21,6 +21,7 @@ interface ReviewComment {
   issue: string;
   suggestion?: string;
   status: string;
+  source: "ai" | "host";
 }
 
 /**
@@ -57,6 +58,7 @@ function parseFinding(
     issue: finding.issue,
     suggestion: finding.suggestion,
     status: "pending",
+    source: "ai" as const,
   };
 }
 
@@ -204,6 +206,7 @@ describe("GitHub API Payload", () => {
       severity: "high",
       issue: "Missing error handling",
       status: "approved",
+      source: "ai",
     };
 
     const payload = buildGitHubComment(comment);
@@ -225,6 +228,7 @@ describe("GitHub API Payload", () => {
       severity: "medium",
       issue: "Important validation was removed",
       status: "approved",
+      source: "ai",
     };
 
     const payload = buildGitHubComment(comment);

@@ -332,6 +332,7 @@ export const githubProvider: PRProvider = {
           codeSnippet: parsedBody.codeSnippet,
           status: "pending",
           authorName: item.user?.login,
+          source: "host" as const,
         });
       }
 

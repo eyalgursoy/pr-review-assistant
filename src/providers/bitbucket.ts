@@ -288,6 +288,7 @@ export const bitbucketProvider: PRProvider = {
           issue: (item.content?.raw || "").trim() || "(No content)",
           status: "pending",
           authorName: item.user?.display_name ?? item.user?.username,
+          source: "host" as const,
         });
       }
 

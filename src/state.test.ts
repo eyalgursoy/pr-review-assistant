@@ -183,6 +183,7 @@ describe("state", () => {
       severity: "medium",
       issue: `Issue ${id}`,
       status,
+      source: "ai",
     });
 
     beforeEach(() => {

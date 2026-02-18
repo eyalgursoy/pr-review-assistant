@@ -301,6 +301,7 @@ export const gitlabProvider: PRProvider = {
             issue: (note.body || "").trim() || "(No content)",
             status: "pending",
             authorName: note.author?.username,
+            source: "host" as const,
           });
         }
       }
