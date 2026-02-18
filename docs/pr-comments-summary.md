@@ -107,6 +107,34 @@ Added a VS Code setting to control visibility of host-resolved/outdated comments
 
 **Test Results:** 195/195 tests pass
 
+### Task 3: GitHub Provider Host Fields
+
+**Branch:** `task/3-github-provider-host-fields`
+**Date:** 2026-02-18
+
+**Changes Made:**
+
+Refactored GitHub comment mapping into testable functions and added `hostOutdated`, `hostResolved`, and `parentId` fields:
+
+- Extracted `GhComment` type to module level and exported it for tests
+- Added `in_reply_to_id` and `position` fields to `GhComment` type
+- Extracted `mapGitHubComments()` (exported) — two-pass: builds ID map first, then maps comments with parentId resolved
+- Extracted `mapSingleGhComment()` (private) — maps a single raw comment using the pre-built ID map
+- `hostOutdated` set to `true` when `position === null` (but NOT for file-level comments where `subject_type === "file"`)
+- `hostResolved` always `false` — GitHub REST API doesn't expose thread resolution state
+- `parentId` resolved from `in_reply_to_id` via the numeric-ID-to-string-ID map
+
+**Files Modified:**
+- `src/providers/github.ts` — extracted `GhComment` type, `mapGitHubComments()`, `mapSingleGhComment()`; added `hostOutdated`, `hostResolved`, `parentId` to returned comments
+- `src/github.test.ts` — added vscode mock; added 11 new tests in `mapGitHubComments` describe block covering all new fields
+
+**Key Decisions:**
+- Extracted mapping logic into standalone exported functions so tests don't need to mock `gh` CLI calls
+- File-level comments (`subject_type === "file"`) are never marked outdated even if `position` is null, since they aren't tied to a specific line
+- When `in_reply_to_id` references an ID not present in the current page of results, the comment is treated as a root comment (`parentId` undefined)
+
+**Test Results:** 206/206 tests pass
+
 ---
 
 ## Architecture Notes

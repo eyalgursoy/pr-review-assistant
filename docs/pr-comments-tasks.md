@@ -75,18 +75,18 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 **Branch:** `task/3-github-provider-host-fields`
 
-- [ ] Branch created
-- [ ] `GhComment` type updated with `in_reply_to_id` and `position`
-- [ ] ID map built for parentId resolution
-- [ ] `source: 'host'` set on all fetched comments
-- [ ] `hostOutdated` set based on `position === null`
-- [ ] `parentId` resolved from `in_reply_to_id`
-- [ ] Tests added to `src/github.test.ts`
-- [ ] `npm run build` passes
-- [ ] `npm test` passes
-- [ ] `npm run package` creates .vsix
-- [ ] Changes committed with proper message
-- [ ] `docs/pr-comments-summary.md` updated
+- [x] Branch created
+- [x] `GhComment` type updated with `in_reply_to_id` and `position`
+- [x] ID map built for parentId resolution
+- [x] `source: 'host'` set on all fetched comments
+- [x] `hostOutdated` set based on `position === null`
+- [x] `parentId` resolved from `in_reply_to_id`
+- [x] Tests added to `src/github.test.ts`
+- [x] `npm run build` passes
+- [x] `npm test` passes (206/206)
+- [x] `npm run package` creates .vsix
+- [x] Changes committed with proper message
+- [x] `docs/pr-comments-summary.md` updated
 
 ---
 
