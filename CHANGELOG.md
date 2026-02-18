@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.3] - 2026-02
+
 ### Fixed
 
 - Cursor CLI workspace trust: when the CLI returns the "Workspace Trust Required" prompt instead of JSON, show a clear error explaining that IDE Trusted folders don't apply and how to approve the directory via `agent chat` in a terminal.
+
+### Changed
+
+- Internal: extended `ReviewComment` type with `source` (`'ai' | 'host'`), `hostOutdated`, `hostResolved`, and `parentId` fields as the foundational data model for upcoming comment filtering and reply hierarchy features. No user-visible changes.
 
 ## [0.17.1] - 2026-02
 
