@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const mockGetState = vi.fn();
 const mockGetAllComments = vi.fn();
 const mockGetProgress = vi.fn();
+const mockGetDisplayCommentsForFile = vi.fn();
 
 vi.mock("vscode", () => ({
   EventEmitter: class {
@@ -21,13 +22,17 @@ vi.mock("vscode", () => ({
   },
   window: {},
   ThemeIcon: class {},
+  ThemeColor: class {},
   TreeItem: class {},
+  TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
   Uri: {
     file: (p: string) => ({ path: p }),
     joinPath: (base: { uri: { fsPath: string } }, ...segments: string[]) =>
       ({ path: [base.uri.fsPath, ...segments].join("/") }),
   },
-  MarkdownString: class {},
+  MarkdownString: class {
+    appendMarkdown() { return this; }
+  },
   workspace: {
     workspaceFolders: [{ uri: { fsPath: "/workspace" } }],
     onDidChangeConfiguration: () => ({ dispose: () => {} }),
@@ -37,6 +42,8 @@ vi.mock("vscode", () => ({
 vi.mock("./state", () => ({
   getState: () => mockGetState(),
   getAllComments: () => mockGetAllComments(),
+  getDisplayCommentsForFile: (...args: unknown[]) =>
+    mockGetDisplayCommentsForFile(...args),
   onStateChange: () => ({ dispose: () => {} }),
   allCommentsRejected: () => false,
 }));
@@ -96,6 +103,7 @@ describe("PRReviewTreeProvider", () => {
       error: null,
     } as ReviewState);
     mockGetAllComments.mockReturnValue([]);
+    mockGetDisplayCommentsForFile.mockReturnValue([]);
     mockGetProgress.mockReturnValue({
       stage: "idle",
       message: "",
@@ -290,12 +298,187 @@ describe("PRReviewTreeProvider", () => {
         isLoading: false,
         error: null,
       } as ReviewState);
+      mockGetDisplayCommentsForFile.mockReturnValue([]);
       const parent = provider.getParent({
         type: "comment",
         label: "Some issue",
         comment: makeComment(),
       });
       expect(parent).toBeUndefined();
+    });
+
+    it("returns parent comment for reply comment", () => {
+      const root = makeComment({ id: "root", file: "src/foo.ts" });
+      const reply = makeComment({
+        id: "reply",
+        file: "src/foo.ts",
+        parentId: "root",
+      });
+      mockGetDisplayCommentsForFile.mockReturnValue([root, reply]);
+      const parent = provider.getParent({
+        type: "comment",
+        label: "Reply issue",
+        comment: reply,
+      });
+      expect(parent).toBeDefined();
+      expect(parent!.type).toBe("comment");
+      expect(parent!.comment).toBe(root);
+    });
+  });
+
+  describe("getChildren - hierarchy", () => {
+    it("shows only root comments under file", () => {
+      const root = makeComment({ id: "root", file: "src/foo.ts" });
+      const reply = makeComment({
+        id: "reply",
+        file: "src/foo.ts",
+        parentId: "root",
+      });
+      const file = makeFile("src/foo.ts", [root, reply]);
+      mockGetDisplayCommentsForFile.mockReturnValue([root, reply]);
+
+      const children = provider.getChildren({
+        type: "file",
+        label: "foo.ts",
+        file,
+      });
+      expect(children).toHaveLength(1);
+      expect(children[0].comment).toBe(root);
+    });
+
+    it("shows replies as children of parent comment", () => {
+      const root = makeComment({ id: "root", file: "src/foo.ts" });
+      const reply1 = makeComment({
+        id: "r1",
+        file: "src/foo.ts",
+        parentId: "root",
+        issue: "Reply 1",
+      });
+      const reply2 = makeComment({
+        id: "r2",
+        file: "src/foo.ts",
+        parentId: "root",
+        issue: "Reply 2",
+      });
+      mockGetDisplayCommentsForFile.mockReturnValue([root, reply1, reply2]);
+
+      const children = provider.getChildren({
+        type: "comment",
+        label: "Root issue",
+        comment: root,
+      });
+      expect(children).toHaveLength(2);
+      expect(children[0].description).toBe("(reply)");
+      expect(children[1].description).toBe("(reply)");
+    });
+
+    it("returns empty for comment with no replies", () => {
+      const root = makeComment({ id: "root", file: "src/foo.ts" });
+      mockGetDisplayCommentsForFile.mockReturnValue([root]);
+
+      const children = provider.getChildren({
+        type: "comment",
+        label: "Root issue",
+        comment: root,
+      });
+      expect(children).toHaveLength(0);
+    });
+
+    it("excludes hostResolved comments when filtered", () => {
+      const visible = makeComment({
+        id: "v",
+        file: "src/foo.ts",
+        source: "host",
+      });
+      // hostResolved is filtered out by getDisplayCommentsForFile mock
+      mockGetDisplayCommentsForFile.mockReturnValue([visible]);
+      const file = makeFile("src/foo.ts", [visible]);
+
+      const children = provider.getChildren({
+        type: "file",
+        label: "foo.ts",
+        file,
+      });
+      expect(children).toHaveLength(1);
+      expect(children[0].comment!.id).toBe("v");
+    });
+  });
+
+  describe("getTreeItem - comment indicators", () => {
+    it("shows outdated indicator for hostOutdated comments", () => {
+      const comment = makeComment({
+        hostOutdated: true,
+        source: "host",
+      });
+      mockGetDisplayCommentsForFile.mockReturnValue([comment]);
+
+      const item = provider.getTreeItem({
+        type: "comment",
+        label: "Issue",
+        comment,
+      });
+      expect(item.description).toContain("outdated");
+      expect(item.command).toBeUndefined();
+    });
+
+    it("shows resolved indicator for hostResolved comments", () => {
+      const comment = makeComment({
+        hostResolved: true,
+        source: "host",
+      });
+      mockGetDisplayCommentsForFile.mockReturnValue([comment]);
+
+      const item = provider.getTreeItem({
+        type: "comment",
+        label: "Issue",
+        comment,
+      });
+      expect(item.description).toContain("resolved");
+      expect(item.command).toBeUndefined();
+    });
+
+    it("has click command for normal comments", () => {
+      const comment = makeComment();
+      mockGetDisplayCommentsForFile.mockReturnValue([comment]);
+
+      const item = provider.getTreeItem({
+        type: "comment",
+        label: "Issue",
+        comment,
+      });
+      expect(item.command).toBeDefined();
+      expect(item.command!.command).toBe("prReview.goToComment");
+    });
+
+    it("sets Collapsed state for comments with replies", () => {
+      const root = makeComment({ id: "root", file: "src/foo.ts" });
+      const reply = makeComment({
+        id: "reply",
+        file: "src/foo.ts",
+        parentId: "root",
+      });
+      mockGetDisplayCommentsForFile.mockReturnValue([root, reply]);
+
+      const item = provider.getTreeItem({
+        type: "comment",
+        label: "Root issue",
+        comment: root,
+      });
+      // TreeItemCollapsibleState.Collapsed = 1
+      expect(item.collapsibleState).toBe(1);
+    });
+
+    it("sets None state for comments without replies", () => {
+      const root = makeComment({ id: "root", file: "src/foo.ts" });
+      mockGetDisplayCommentsForFile.mockReturnValue([root]);
+
+      const item = provider.getTreeItem({
+        type: "comment",
+        label: "Root issue",
+        comment: root,
+      });
+      // TreeItemCollapsibleState.None = 0
+      expect(item.collapsibleState).toBe(0);
     });
   });
 });

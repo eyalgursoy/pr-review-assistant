@@ -107,6 +107,35 @@ Added a VS Code setting to control visibility of host-resolved/outdated comments
 
 **Test Results:** 195/195 tests pass
 
+### Task 5: Tree View Hierarchy
+
+**Branch:** `task/5-tree-view-hierarchy`
+**Date:** 2026-02-18
+
+**Changes Made:**
+
+Updated the SCM sidebar tree view to show reply hierarchy, use filtered comments, and indicate resolved/outdated status:
+
+- **Root-only under files**: `getChildren` for `file` now uses `getDisplayCommentsForFile()` and filters to root comments only (`!c.parentId`)
+- **Replies as children**: New `getChildren` case for `comment` type returns reply comments where `parentId === comment.id`, labeled with `(reply)`
+- **Collapsible state**: Comments with replies get `TreeItemCollapsibleState.Collapsed`; leaf comments get `None`
+- **Resolved/outdated indicators**: `hostOutdated` shows `· outdated`, `hostResolved` shows `· resolved` in description; click command removed for these
+- **Filtered file counts**: File descriptions and collapsible state use display (filtered) root comment counts
+- **`getParent` updated**: Reply comments return their parent comment as tree parent; root comments return the file node
+
+**Files Modified:**
+- `src/tree-view.ts` — imported `getDisplayCommentsForFile`; updated `getTreeItem`, `getChildren`, `getFileItems`, `getParent` for hierarchy and filtering
+- `src/tree-view.test.ts` — added `ThemeColor`, `TreeItemCollapsibleState`, `MarkdownString.appendMarkdown` to vscode mock; added `getDisplayCommentsForFile` to state mock; added 10 new tests across 3 describe blocks
+
+**Key Decisions:**
+- File description shows only root display comment count (not total including replies)
+- Reply label includes `(reply)` as description text so it's visually distinct
+- `getParent` for reply → parent comment; for root → file; enables VS Code `reveal()` API
+
+**Test Results:** 236/236 tests pass
+
+---
+
 ### Task 4: GitLab and Bitbucket Providers
 
 **Branch:** `task/4-gitlab-bitbucket-providers`
