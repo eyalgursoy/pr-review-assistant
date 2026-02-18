@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.17.3",
+  "version": "0.17.4",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -437,6 +437,12 @@
           "type": "string",
           "default": "",
           "description": "Override detected language rules. Comma-separated list (e.g. typescript,python). Empty uses auto-detection."
+        },
+        "prReview.showResolvedOrOutdated": {
+          "type": "string",
+          "enum": ["hide", "show"],
+          "default": "hide",
+          "description": "How to handle host-resolved or outdated comments. 'hide' excludes them from display; 'show' includes them with visual indicator."
         }
       }
     }
