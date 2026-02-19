@@ -81,6 +81,85 @@ function normalizePath(path: string): string {
   return path;
 }
 
+export type GhComment = {
+  id?: number;
+  node_id?: string;
+  path?: string;
+  line?: number | null;
+  original_line?: number | null;
+  side?: string;
+  body?: string;
+  user?: { login?: string } | null;
+  subject_type?: string;
+  in_reply_to_id?: number | null;
+  position?: number | null;
+};
+
+/**
+ * Map an array of raw GitHub API comments to ReviewComment[].
+ * Two-pass: first builds an ID map for parentId resolution, then maps comments.
+ */
+export function mapGitHubComments(items: GhComment[]): ReviewComment[] {
+  const idMap = new Map<number, string>();
+  for (const item of items) {
+    const nodeId = item.node_id ?? String(item.id ?? "");
+    const id = `host-gh-${nodeId}`;
+    if (item.id) {
+      idMap.set(item.id, id);
+    }
+  }
+
+  const results: ReviewComment[] = [];
+  for (const item of items) {
+    const mapped = mapSingleGhComment(item, idMap);
+    if (mapped) results.push(mapped);
+  }
+  return results;
+}
+
+/** Map a single raw GitHub comment (with a pre-built ID map for parentId). */
+function mapSingleGhComment(
+  item: GhComment,
+  idMap: Map<number, string>
+): ReviewComment | null {
+  const path = item.path;
+  if (!path) return null;
+
+  const subjectType = item.subject_type;
+  const isFileLevel = subjectType === "file";
+  const line = isFileLevel ? 1 : (item.line ?? item.original_line ?? 1);
+  const side =
+    item.side === "LEFT" ? ("LEFT" as const) : ("RIGHT" as const);
+  const nodeId = item.node_id ?? String(item.id ?? "");
+  const id = `host-gh-${nodeId}`;
+  const parsedBody = parseCommentBody(item.body ?? "");
+  const filePath = normalizePath(path);
+
+  const hostOutdated = !isFileLevel && item.position === null;
+
+  let parentId: string | undefined;
+  if (item.in_reply_to_id && idMap.has(item.in_reply_to_id)) {
+    parentId = idMap.get(item.in_reply_to_id);
+  }
+
+  return {
+    id,
+    file: filePath,
+    line: typeof line === "number" ? line : 1,
+    side,
+    severity: "medium",
+    issue: parsedBody.issue,
+    suggestion: parsedBody.suggestion,
+    codeSnippet: parsedBody.codeSnippet,
+    status: "pending",
+    authorName: item.user?.login,
+    source: "host",
+    hostOutdated,
+    hostResolved: false,
+    parentId,
+  };
+}
+
 export const githubProvider: PRProvider = {
   host: "github",
 
@@ -262,18 +341,6 @@ export const githubProvider: PRProvider = {
     const perPage = 100;
     let page = 1;
 
-    type GhComment = {
-      id?: number;
-      node_id?: string;
-      path?: string;
-      line?: number | null;
-      original_line?: number | null;
-      side?: string;
-      body?: string;
-      user?: { login?: string } | null;
-      subject_type?: string;
-    };
-
     while (true) {
       // Query string for pagination; -f would send body and GET list endpoint returns 422
       const url = `repos/${owner}/${repo}/pulls/${prNumber}/comments?per_page=${perPage}&page=${page}`;
@@ -306,35 +373,7 @@ export const githubProvider: PRProvider = {
 
       if (items.length === 0) break;
 
-      for (const item of items) {
-        const path = item.path;
-        if (!path) continue;
-
-        const subjectType = item.subject_type;
-        const isFileLevel = subjectType === "file";
-        const line =
-          isFileLevel ? 1 : (item.line ?? item.original_line ?? 1);
-        const side =
-          item.side === "LEFT" ? ("LEFT" as const) : ("RIGHT" as const);
-        const nodeId = item.node_id ?? String(item.id ?? "");
-        const id = `host-gh-${nodeId}`;
-        const parsedBody = parseCommentBody(item.body ?? "");
-        const filePath = normalizePath(path);
-
-        all.push({
-          id,
-          file: filePath,
-          line: typeof line === "number" ? line : 1,
-          side,
-          severity: "medium",
-          issue: parsedBody.issue,
-          suggestion: parsedBody.suggestion,
-          codeSnippet: parsedBody.codeSnippet,
-          status: "pending",
-          authorName: item.user?.login,
-          source: "host" as const,
-        });
-      }
+      all.push(...mapGitHubComments(items));
 
       if (items.length < perPage) break;
       page += 1;
