@@ -66,6 +66,7 @@ function makeComment(overrides: Partial<ReviewComment> = {}): ReviewComment {
     severity: "medium",
     issue: "Some issue",
     status: "pending",
+    source: "ai",
     ...overrides,
   };
 }

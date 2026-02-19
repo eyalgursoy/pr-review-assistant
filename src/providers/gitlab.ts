@@ -301,6 +301,7 @@ export const gitlabProvider: PRProvider = {
             issue: (note.body || "").trim() || "(No content)",
             status: "pending",
             authorName: note.author?.username,
+            source: "host" as const,
           });
         }
       }
@@ -424,7 +425,7 @@ export const gitlabProvider: PRProvider = {
 
   async approvePR(
     pr: PRInfo,
-    body: string = "LGTM! Code reviewed with PR Review Assistant."
+    _body: string = "LGTM! Code reviewed with PR Review Assistant."
   ): Promise<SubmitResult> {
     const token = await getToken();
     if (!token) {

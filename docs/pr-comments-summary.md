@@ -1,0 +1,188 @@
+# PR Comments Implementation Summary
+
+---
+
+## File Roles (Read This First)
+
+This implementation uses **three coordinated files**. Each has a specific purpose:
+
+| File | Purpose | When to Use |
+|------|---------|-------------|
+| **[pr-comments-filter-hierarchy-plan.md](pr-comments-filter-hierarchy-plan.md)** | Master plan with detailed specifications | Reference for implementation details, code snippets, and requirements |
+| **[pr-comments-tasks.md](pr-comments-tasks.md)** | Task checklist with completion status | Check/update task progress, see what's done vs pending |
+| **[pr-comments-summary.md](pr-comments-summary.md)** (THIS FILE) | Running summary of completed work | **READ BEFORE EACH TASK** to understand prior context |
+
+---
+
+## FOR AI AGENTS: READ THIS FILE FIRST!
+
+**Before starting ANY task, you MUST:**
+1. Read this ENTIRE file to understand what has been done
+2. Check [pr-comments-tasks.md](pr-comments-tasks.md) to see which task is next
+3. Reference [pr-comments-filter-hierarchy-plan.md](pr-comments-filter-hierarchy-plan.md) for implementation details
+
+**After completing a task, you MUST update this file with:**
+- Task number and branch name
+- Commit hash
+- Date completed
+- Summary of changes made
+- Files modified
+- Key decisions or deviations from plan
+- Any issues encountered and how they were resolved
+
+---
+
+## Key Terminology
+
+Before working on any task, understand these distinct concepts:
+
+| Term | Meaning | Example |
+|------|---------|---------|
+| `source` | Origin of comment | `'ai'` (from AI review) or `'host'` (from GitHub/GitLab/Bitbucket) |
+| `hostOutdated` | Position no longer valid on host | GitHub comment with `position: null` |
+| `hostResolved` | Thread resolved on host | GitLab discussion with `resolved: true` |
+| `status` | Local user decision | `'pending'`, `'approved'`, `'rejected'` |
+| `parentId` | Reply hierarchy | Points to parent comment ID for replies |
+
+**Critical distinction:** `hostResolved`/`hostOutdated` are about remote state. `status` is local state. They are independent!
+
+---
+
+## Completed Tasks
+
+### Task 1: Extend ReviewComment Type
+
+**Branch:** `task/1-extend-review-comment-type`
+**Date:** 2026-02-18
+
+**Changes Made:**
+
+Four new fields added to `ReviewComment` interface in `src/types.ts`:
+- `source: 'ai' | 'host'` (required) — distinguishes AI-generated vs host-fetched comments
+- `hostOutdated?: boolean` — true when GitHub/GitLab position is null (code changed)
+- `hostResolved?: boolean` — true when thread resolved on host; independent of local `status`
+- `parentId?: string` — set on reply comments to point to their root comment ID
+
+**Files Modified:**
+- `src/types.ts` — added 4 fields to `ReviewComment`, updated JSDoc
+- `src/ai-providers.ts` — added `source: 'ai'` to all 3 AI comment creation sites
+- `src/providers/github.ts` — added `source: 'host'`
+- `src/providers/gitlab.ts` — added `source: 'host'`
+- `src/providers/bitbucket.ts` — added `source: 'host'`
+- `src/tree-view.test.ts` — added `source: 'ai'` to `makeComment()` fixture
+- `src/state.test.ts` — added `source: 'ai'` to `createComment()` fixture
+- `src/line-numbers.test.ts` — added `source` to local `ReviewComment` interface and all object literals
+- `src/types.test.ts` (new) — 16 tests covering all new fields
+
+**Key Decisions:**
+- `source` is REQUIRED (not optional) — every comment must declare its origin
+- `hostOutdated`/`hostResolved` are optional booleans — undefined = not set (not the same as false)
+- `parentId` undefined = root comment; string = reply pointing to parent
+- `line-numbers.test.ts` defines its OWN local `ReviewComment` interface (does not import from types.ts) — had to update both the interface and all inline object literals there
+
+**Test Results:** 186/186 tests pass
+
+---
+
+## Architecture Notes
+
+*(Add important architectural decisions here as tasks are completed)*
+
+### Comment ID Scheme
+
+- AI comments: `comment-{timestamp}-{index}`
+- GitHub comments: `host-gh-{node_id}`
+- GitLab comments: `host-gl-{note_id}`
+- Bitbucket comments: `host-bb-{comment_id}`
+
+### Filter Flow
+
+```
+getAllComments() → getDisplayComments() → UI components
+                         ↓
+              Applies showResolvedOrOutdated setting
+              Filters out hostResolved/hostOutdated when 'hide'
+```
+
+### Reply Hierarchy
+
+```
+Root comment (parentId: undefined)
+  └── Reply 1 (parentId: root.id)
+  └── Reply 2 (parentId: root.id)
+```
+
+---
+
+## Known Limitations
+
+*(Document any limitations discovered during implementation)*
+
+1. **GitHub REST API:** Does not expose thread resolution state. `hostResolved` will always be `false` for GitHub comments until GraphQL support is added.
+
+2. **Bitbucket:** Does not have thread resolution concept. `hostResolved` will always be `false`.
+
+---
+
+## Files Modified Per Task
+
+*(Track which files are modified in each task for reference)*
+
+| Task | Files Modified |
+|------|----------------|
+| 1 | `src/types.ts`, `src/ai-providers.ts`, `src/types.test.ts` (new) |
+| 2 | `package.json`, `src/state.ts`, `src/state.test.ts` |
+| 3 | `src/providers/github.ts`, `src/github.test.ts` |
+| 4 | `src/providers/gitlab.ts`, `src/providers/bitbucket.ts`, tests |
+| 5 | `src/tree-view.ts`, `src/tree-view.test.ts` |
+| 6 | `src/comments.ts`, `src/comments.test.ts` |
+| 7 | `src/codelens.ts`, `src/codelens.test.ts` (new) |
+| 8 | `src/extension.ts`, `src/extension.test.ts` |
+
+---
+
+## Test Commands
+
+```bash
+# Run all tests
+npm test
+
+# Run specific test file
+npm test -- src/state.test.ts
+
+# Run tests in watch mode
+npm run test:watch
+
+# Build
+npm run build
+
+# Package
+npm run package
+```
+
+---
+
+## Commit Message Format
+
+Follow project conventions:
+
+```
+feat(scope): short description
+
+- Detail 1
+- Detail 2
+
+Refs: Task N from pr-comments-filter-hierarchy-plan
+```
+
+Example:
+```
+feat(types): add source, hostOutdated, hostResolved, parentId fields
+
+- Added source field to distinguish AI vs host comments
+- Added hostOutdated for comments with invalid position
+- Added hostResolved for thread resolution state
+- Added parentId for reply hierarchy
+
+Refs: Task 1 from pr-comments-filter-hierarchy-plan
+```

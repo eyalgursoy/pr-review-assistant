@@ -143,7 +143,7 @@ export const githubProvider: PRProvider = {
     };
     try {
       data = JSON.parse(stdout);
-    } catch (e) {
+    } catch (_e) {
       log(`fetchPRInfo gh stdout (truncated): ${stdout.substring(0, 500)}`);
       throw new Error(
         "Failed to load PR information. Check that the PR exists and you have access (gh auth status)."
@@ -196,7 +196,7 @@ export const githubProvider: PRProvider = {
     };
     try {
       data = JSON.parse(stdout);
-    } catch (e) {
+    } catch (_e) {
       log(`fetchChangedFiles gh stdout (truncated): ${stdout.substring(0, 500)}`);
       throw new Error(
         "Failed to load PR file list. Check that the PR exists and you have access."
@@ -297,7 +297,7 @@ export const githubProvider: PRProvider = {
         } else {
           items = [parsed];
         }
-      } catch (e) {
+      } catch (_e) {
         log(
           `fetchPRComments parse error (truncated): ${(stdout || "").substring(0, 300)}`
         );
@@ -332,6 +332,7 @@ export const githubProvider: PRProvider = {
           codeSnippet: parsedBody.codeSnippet,
           status: "pending",
           authorName: item.user?.login,
+          source: "host" as const,
         });
       }
 
