@@ -15,6 +15,7 @@ vi.mock("vscode", () => ({
 }));
 import { buildReviewPrompt, REVIEW_TEMPLATE } from "./review-template";
 import type { ProjectContext } from "./project-detector";
+import type { ReviewComment } from "./types";
 
 const minimalContext: ProjectContext = {
   projectType: "unknown",
@@ -119,5 +120,97 @@ describe("buildReviewPrompt", () => {
     );
 
     expect(prompt).toContain("## Project Context");
+  });
+
+  it("should not include Already Filed Comments section when no existing comments", async () => {
+    const prompt = await buildReviewPrompt(
+      "feature/test",
+      "main",
+      "Test",
+      "diff",
+      minimalContext,
+      undefined
+    );
+    expect(prompt).not.toContain("## Already Filed Comments");
+    expect(prompt).toContain("## Code Changes");
+  });
+
+  it("should not include Already Filed Comments section when existingComments is empty array", async () => {
+    const prompt = await buildReviewPrompt(
+      "feature/test",
+      "main",
+      "Test",
+      "diff",
+      minimalContext,
+      undefined,
+      []
+    );
+    expect(prompt).not.toContain("## Already Filed Comments");
+  });
+
+  it("should include Already Filed Comments section when host comments provided", async () => {
+    const hostComments: ReviewComment[] = [
+      {
+        id: "host-1",
+        file: "src/foo.ts",
+        line: 10,
+        side: "RIGHT",
+        severity: "medium",
+        issue: "Possible null dereference",
+        status: "pending",
+        source: "host",
+      },
+      {
+        id: "host-2",
+        file: "lib/bar.ts",
+        line: 5,
+        side: "RIGHT",
+        severity: "low",
+        issue: "Unused variable",
+        status: "pending",
+        source: "host",
+      },
+    ];
+    const prompt = await buildReviewPrompt(
+      "feature/test",
+      "main",
+      "Test",
+      "diff",
+      minimalContext,
+      undefined,
+      hostComments
+    );
+    expect(prompt).toContain("## Already Filed Comments");
+    expect(prompt).toContain("Do NOT repeat them");
+    expect(prompt).toContain("**src/foo.ts:10** — Possible null dereference");
+    expect(prompt).toContain("**lib/bar.ts:5** — Unused variable");
+  });
+
+  it("should place Already Filed Comments section before Code Changes", async () => {
+    const hostComments: ReviewComment[] = [
+      {
+        id: "host-1",
+        file: "a.ts",
+        line: 1,
+        side: "RIGHT",
+        severity: "medium",
+        issue: "Issue one",
+        status: "pending",
+        source: "host",
+      },
+    ];
+    const prompt = await buildReviewPrompt(
+      "feature/test",
+      "main",
+      "Test",
+      "diff",
+      minimalContext,
+      undefined,
+      hostComments
+    );
+    const existingIndex = prompt.indexOf("## Already Filed Comments");
+    const codeChangesIndex = prompt.indexOf("## Code Changes");
+    expect(existingIndex).toBeGreaterThanOrEqual(0);
+    expect(codeChangesIndex).toBeGreaterThan(existingIndex);
   });
 });

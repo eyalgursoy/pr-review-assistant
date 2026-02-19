@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.8] - 2026-02
+
+### Changed
+
+- AI review prompt now includes existing host (PR) comments so the AI avoids repeating already-filed issues and focuses on new ones when you re-run review on the same PR.
+
 ## [0.17.7] - 2026-02
 
 ### Changed

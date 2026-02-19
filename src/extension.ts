@@ -33,6 +33,7 @@ import {
   allCommentsReviewed,
   allCommentsRejected,
   onStateChange,
+  getAllComments,
 } from "./state";
 import {
   parsePRUrl,
@@ -832,14 +833,16 @@ async function runReview() {
       { type: projectContext.projectType, languages: projectContext.languages, frameworks: projectContext.frameworks }
     );
 
-    // Build the prompt
+    // Build the prompt (include existing host comments so AI does not repeat them)
+    const hostComments = getAllComments().filter((c) => c.source === "host");
     const template = await buildReviewPrompt(
       state.pr!.headBranch,
       state.pr!.baseBranch,
       state.pr!.title,
       state.diff,
       projectContext,
-      projectContext.rootPath
+      projectContext.rootPath,
+      hostComments
     );
 
     log("Review template length:", template.length);
