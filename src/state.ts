@@ -223,6 +223,24 @@ export function deduplicateComments(
 }
 
 /**
+ * Remove all comments with source === 'ai' from state.
+ * Host comments are preserved. File entries with no remaining comments are removed.
+ */
+export function clearAIComments(): void {
+  state = {
+    ...state,
+    files: state.files
+      .map((file) => ({
+        ...file,
+        comments: file.comments.filter((c) => c.source !== "ai"),
+      }))
+      .filter((file) => file.comments.length > 0),
+  };
+  updateContextKeys();
+  stateChangeEmitter.fire(state);
+}
+
+/**
  * Get approved comments
  */
 export function getApprovedComments(): ReviewComment[] {

@@ -76,17 +76,17 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 **Branch:** `task/3-clear-ai-comments-on-rerun`
 
-- [ ] Branch created
-- [ ] `clearAIComments()` added to `src/state.ts`
-- [ ] `runReview()` calls `clearAIComments()` when AI comments exist
-- [ ] Host comments preserved
-- [ ] Tests added in `src/state.test.ts`
-- [ ] `npm run build` passes
-- [ ] `npm test` passes
-- [ ] `npm run package` creates .vsix
-- [ ] Version bumped, README/CHANGELOG updated
-- [ ] Changes committed with proper message
-- [ ] `docs/ai-review-context-summary.md` updated
+- [x] Branch created
+- [x] `clearAIComments()` added to `src/state.ts`
+- [x] `runReview()` calls `clearAIComments()` when AI comments exist
+- [x] Host comments preserved
+- [x] Tests added in `src/state.test.ts`
+- [x] `npm run build` passes
+- [x] `npm test` passes (281/281)
+- [x] `npm run package` creates .vsix
+- [x] Version bumped, README/CHANGELOG updated
+- [x] Changes committed with proper message
+- [x] `docs/ai-review-context-summary.md` updated
 
 ---
 

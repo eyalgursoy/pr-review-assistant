@@ -35,6 +35,7 @@ import {
   onStateChange,
   getAllComments,
   deduplicateComments,
+  clearAIComments,
 } from "./state";
 import {
   parsePRUrl,
@@ -812,6 +813,12 @@ async function runReview() {
   startProgress();
 
   try {
+    // Clear previous AI comments so re-run shows only fresh results; host comments are preserved
+    const hasExistingAI = getAllComments().some((c) => c.source === "ai");
+    if (hasExistingAI) {
+      clearAIComments();
+    }
+
     // Detect project context for rules (unless disabled)
     const config = vscode.workspace.getConfiguration("prReview");
     const enableProjectDetection = config.get<boolean>(

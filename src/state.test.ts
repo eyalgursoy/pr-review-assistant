@@ -53,6 +53,7 @@ import {
   getDisplayComments,
   getDisplayCommentsForFile,
   deduplicateComments,
+  clearAIComments,
 } from "./state";
 import type { PRInfo, ChangedFile, ReviewComment } from "./types";
 
@@ -491,6 +492,61 @@ describe("state", () => {
       const result = deduplicateComments(incoming, existing);
       expect(result).toHaveLength(1);
       expect(result[0]!.line).toBe(12);
+    });
+  });
+
+  describe("clearAIComments", () => {
+    const make = (id: string, file: string, source: "ai" | "host"): ReviewComment => ({
+      id,
+      file,
+      line: 10,
+      side: "RIGHT",
+      severity: "medium",
+      issue: `Issue ${id}`,
+      status: "pending",
+      source,
+    });
+
+    it("removes all source ai comments", () => {
+      setFiles([
+        { path: "src/a.ts", status: "modified", additions: 0, deletions: 0, comments: [] },
+        { path: "src/b.ts", status: "modified", additions: 0, deletions: 0, comments: [] },
+      ]);
+      addComments([make("ai1", "src/a.ts", "ai"), make("ai2", "src/b.ts", "ai")]);
+      expect(getAllComments()).toHaveLength(2);
+      clearAIComments();
+      expect(getAllComments()).toHaveLength(0);
+    });
+
+    it("preserves all source host comments", () => {
+      setFiles([{ path: "src/a.ts", status: "modified", additions: 0, deletions: 0, comments: [] }]);
+      addComments([make("h1", "src/a.ts", "host"), make("ai1", "src/a.ts", "ai")]);
+      clearAIComments();
+      const comments = getAllComments();
+      expect(comments).toHaveLength(1);
+      expect(comments[0]!.source).toBe("host");
+      expect(comments[0]!.id).toBe("h1");
+    });
+
+    it("on empty state does not throw", () => {
+      expect(() => clearAIComments()).not.toThrow();
+    });
+
+    it("prunes file entries with no remaining comments", () => {
+      setFiles([
+        { path: "src/ai-only.ts", status: "modified", additions: 0, deletions: 0, comments: [] },
+        { path: "src/mixed.ts", status: "modified", additions: 0, deletions: 0, comments: [] },
+      ]);
+      addComments([
+        make("ai1", "src/ai-only.ts", "ai"),
+        make("ai2", "src/mixed.ts", "ai"),
+        make("h1", "src/mixed.ts", "host"),
+      ]);
+      clearAIComments();
+      const files = getState().files;
+      expect(files).toHaveLength(1);
+      expect(files[0]!.path).toBe("src/mixed.ts");
+      expect(files[0]!.comments).toHaveLength(1);
     });
   });
 
