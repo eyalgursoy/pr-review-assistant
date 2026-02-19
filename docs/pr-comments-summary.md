@@ -107,6 +107,34 @@ Added a VS Code setting to control visibility of host-resolved/outdated comments
 
 **Test Results:** 195/195 tests pass
 
+### Task 8: Action Guards
+
+**Branch:** `task/8-action-guards`
+**Date:** 2026-02-19
+
+**Changes Made:**
+
+Added early-return guards to the three main action functions in `src/extension.ts` to prevent errors (invalid navigation, unnecessary AI calls) when a comment is no longer actionable:
+
+- **`goToComment`**: returns early with `showInformationMessage` if `hostOutdated` ("outdated — the code has changed since it was posted") or `hostResolved` ("thread was resolved on the host"). Navigation to file proceeds only for normal comments.
+- **`fixInChat`**: same guards before attempting to open the file and send context to Cursor/Copilot chat.
+- **`generateSuggestionForComment`**: same guards before opening the file and calling the AI suggestion API.
+
+All three functions were also exported (`export async function`) to enable direct unit testing without needing to trigger them via registered commands.
+
+**Files Modified:**
+- `src/extension.ts` — added guards and `export` keyword to all three functions
+- `src/extension.test.ts` (new) — 10 tests covering guard paths (outdated, resolved, normal) for all three functions
+
+**Key Decisions:**
+- Functions are exported for testability; this is an internal-only export (not part of any public API)
+- The "proceeds for normal" tests assert the guard-specific messages ("outdated"/"resolved") are NOT shown, rather than asserting `showInformationMessage` was never called — because `generateSuggestionForComment` legitimately calls `showInformationMessage("Suggested fix added to comment")` on its success path
+- `vscode.env.clipboard` needed to be added to the test mock to allow `fixInChat`'s success path to complete
+
+**Test Results:** 268/268 tests pass
+
+---
+
 ### Task 7: CodeLens and Decorations
 
 **Branch:** `task/7-codelens-decorations-filter`

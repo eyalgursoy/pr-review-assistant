@@ -1134,7 +1134,19 @@ function resolveCommentArg(arg: unknown): ReviewComment | undefined {
 /**
  * Fix in Chat - open file, copy context, try to open Cursor chat
  */
-async function fixInChat(comment: ReviewComment) {
+export async function fixInChat(comment: ReviewComment) {
+  if (comment.hostOutdated) {
+    vscode.window.showInformationMessage(
+      "Cannot fix in chat — this comment is outdated and the code has changed."
+    );
+    return;
+  }
+  if (comment.hostResolved) {
+    vscode.window.showInformationMessage(
+      "This comment was already resolved on the host."
+    );
+    return;
+  }
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   if (!workspaceFolder) {
     vscode.window.showWarningMessage("No workspace folder open");
@@ -1202,7 +1214,19 @@ Please fix the issue.`;
 /**
  * Generate AI suggestion and add to comment
  */
-async function generateSuggestionForComment(comment: ReviewComment) {
+export async function generateSuggestionForComment(comment: ReviewComment) {
+  if (comment.hostOutdated) {
+    vscode.window.showInformationMessage(
+      "Cannot generate suggestion — this comment is outdated and the code has changed."
+    );
+    return;
+  }
+  if (comment.hostResolved) {
+    vscode.window.showInformationMessage(
+      "This comment was already resolved on the host."
+    );
+    return;
+  }
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   if (!workspaceFolder) {
     vscode.window.showWarningMessage("No workspace folder open");
@@ -1299,7 +1323,19 @@ async function viewDiffForComment(comment: ReviewComment) {
 /**
  * Navigate to a comment in the editor
  */
-async function goToComment(comment: ReviewComment) {
+export async function goToComment(comment: ReviewComment) {
+  if (comment.hostOutdated) {
+    vscode.window.showInformationMessage(
+      "This comment is outdated — the code has changed since it was posted."
+    );
+    return;
+  }
+  if (comment.hostResolved) {
+    vscode.window.showInformationMessage(
+      "This comment thread was resolved on the host."
+    );
+    return;
+  }
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   if (!workspaceFolder) return;
 

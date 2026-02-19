@@ -171,18 +171,18 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 **Branch:** `task/8-action-guards`
 
-- [ ] Branch created
-- [ ] `goToComment` guards for hostOutdated
-- [ ] `goToComment` guards for hostResolved
-- [ ] `fixInChat` guards for hostOutdated/hostResolved
-- [ ] `generateSuggestionForComment` guards added
-- [ ] Tests added to `src/extension.test.ts`
-- [ ] `npm run build` passes
-- [ ] `npm test` passes
-- [ ] `npm run package` creates .vsix
-- [ ] Changes committed with proper message
-- [ ] `docs/pr-comments-summary.md` updated
-- [ ] All tasks complete!
+- [x] Branch created
+- [x] `goToComment` guards for hostOutdated
+- [x] `goToComment` guards for hostResolved
+- [x] `fixInChat` guards for hostOutdated/hostResolved
+- [x] `generateSuggestionForComment` guards added
+- [x] Tests added to `src/extension.test.ts`
+- [x] `npm run build` passes
+- [x] `npm test` passes (268/268)
+- [x] `npm run package` creates .vsix
+- [x] Changes committed with proper message
+- [x] `docs/pr-comments-summary.md` updated
+- [x] All tasks complete!
 
 ---
 
