@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.7] - 2026-02
+
+### Changed
+
+- Clicking on an outdated host comment (code has changed since it was posted) now shows an informational message instead of attempting to navigate to a potentially invalid line.
+- Clicking on a host-resolved comment now shows an informational message explaining the thread was resolved on the host. This applies to "Go to Comment", "Fix in Chat", and "Generate Suggestion".
+
 ## [0.17.6] - 2026-02
 
 ### Added
