@@ -252,6 +252,34 @@ export function getCommentsForFile(filePath: string): ReviewComment[] {
 }
 
 /**
+ * Get comments filtered for display (excludes host-resolved/outdated when setting is 'hide')
+ */
+export function getDisplayComments(): ReviewComment[] {
+  const setting = vscode.workspace
+    .getConfiguration("prReview")
+    .get<string>("showResolvedOrOutdated", "hide");
+  const all = getAllComments();
+  if (setting === "hide") {
+    return all.filter((c) => !c.hostResolved && !c.hostOutdated);
+  }
+  return all;
+}
+
+/**
+ * Get display comments for a specific file
+ */
+export function getDisplayCommentsForFile(filePath: string): ReviewComment[] {
+  const setting = vscode.workspace
+    .getConfiguration("prReview")
+    .get<string>("showResolvedOrOutdated", "hide");
+  const comments = getCommentsForFile(filePath);
+  if (setting === "hide") {
+    return comments.filter((c) => !c.hostResolved && !c.hostOutdated);
+  }
+  return comments;
+}
+
+/**
  * Update VS Code context keys for menu visibility
  */
 function updateContextKeys(): void {

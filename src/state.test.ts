@@ -5,6 +5,8 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
+let mockShowResolvedOrOutdated = "hide";
+
 // Mock vscode before importing state
 vi.mock("vscode", () => ({
   EventEmitter: class {
@@ -19,6 +21,11 @@ vi.mock("vscode", () => ({
   },
   commands: {
     executeCommand: vi.fn(),
+  },
+  workspace: {
+    getConfiguration: vi.fn(() => ({
+      get: (_key: string, defaultValue: string) => mockShowResolvedOrOutdated ?? defaultValue,
+    })),
   },
 }));
 
@@ -43,6 +50,8 @@ import {
   allCommentsReviewed,
   allCommentsRejected,
   getCommentsForFile,
+  getDisplayComments,
+  getDisplayCommentsForFile,
 } from "./state";
 import type { PRInfo, ChangedFile, ReviewComment } from "./types";
 
@@ -338,6 +347,99 @@ describe("state", () => {
 
       it("should return empty array for file with no comments", () => {
         expect(getCommentsForFile("src/nonexistent.ts")).toEqual([]);
+      });
+    });
+
+    describe("getDisplayComments", () => {
+      beforeEach(() => {
+        mockShowResolvedOrOutdated = "hide";
+      });
+
+      it("excludes hostResolved comments when setting is hide", () => {
+        addComments([
+          { ...createComment("1", "src/a.ts"), source: "host", hostResolved: false },
+          { ...createComment("2", "src/a.ts"), source: "host", hostResolved: true },
+        ]);
+        const display = getDisplayComments();
+        expect(display).toHaveLength(1);
+        expect(display[0].id).toBe("1");
+      });
+
+      it("excludes hostOutdated comments when setting is hide", () => {
+        addComments([
+          { ...createComment("1", "src/a.ts"), source: "host", hostOutdated: false },
+          { ...createComment("2", "src/a.ts"), source: "host", hostOutdated: true },
+        ]);
+        const display = getDisplayComments();
+        expect(display).toHaveLength(1);
+        expect(display[0].id).toBe("1");
+      });
+
+      it("includes all comments when setting is show", () => {
+        mockShowResolvedOrOutdated = "show";
+        addComments([
+          { ...createComment("1", "src/a.ts"), source: "host", hostResolved: true },
+          { ...createComment("2", "src/a.ts"), source: "host", hostOutdated: true },
+        ]);
+        const display = getDisplayComments();
+        expect(display).toHaveLength(2);
+      });
+
+      it("never filters AI comments", () => {
+        addComments([
+          createComment("1", "src/a.ts"),
+          { ...createComment("2", "src/a.ts"), source: "host", hostResolved: true },
+        ]);
+        const display = getDisplayComments();
+        expect(display).toHaveLength(1);
+        expect(display[0].source).toBe("ai");
+      });
+
+      it("keeps comments with undefined hostResolved/hostOutdated", () => {
+        addComments([
+          createComment("1", "src/a.ts"),
+          createComment("2", "src/b.ts"),
+        ]);
+        const display = getDisplayComments();
+        expect(display).toHaveLength(2);
+      });
+    });
+
+    describe("getDisplayCommentsForFile", () => {
+      beforeEach(() => {
+        mockShowResolvedOrOutdated = "hide";
+      });
+
+      it("excludes hostResolved comments for a specific file when setting is hide", () => {
+        addComments([
+          { ...createComment("1", "src/a.ts"), source: "host", hostResolved: false },
+          { ...createComment("2", "src/a.ts"), source: "host", hostResolved: true },
+          { ...createComment("3", "src/b.ts"), source: "host", hostResolved: true },
+        ]);
+        expect(getDisplayCommentsForFile("src/a.ts")).toHaveLength(1);
+        expect(getDisplayCommentsForFile("src/b.ts")).toHaveLength(0);
+      });
+
+      it("excludes hostOutdated comments for a specific file when setting is hide", () => {
+        addComments([
+          { ...createComment("1", "src/a.ts"), source: "host", hostOutdated: true },
+          { ...createComment("2", "src/a.ts"), source: "host", hostOutdated: false },
+        ]);
+        expect(getDisplayCommentsForFile("src/a.ts")).toHaveLength(1);
+        expect(getDisplayCommentsForFile("src/a.ts")[0].id).toBe("2");
+      });
+
+      it("includes all comments for a specific file when setting is show", () => {
+        mockShowResolvedOrOutdated = "show";
+        addComments([
+          { ...createComment("1", "src/a.ts"), source: "host", hostResolved: true },
+          { ...createComment("2", "src/a.ts"), source: "host", hostOutdated: true },
+        ]);
+        expect(getDisplayCommentsForFile("src/a.ts")).toHaveLength(2);
+      });
+
+      it("returns empty array for file with no comments", () => {
+        expect(getDisplayCommentsForFile("src/nonexistent.ts")).toEqual([]);
       });
     });
   });

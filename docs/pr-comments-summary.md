@@ -82,6 +82,31 @@ Four new fields added to `ReviewComment` interface in `src/types.ts`:
 
 **Test Results:** 186/186 tests pass
 
+### Task 2: Display Filter Setting
+
+**Branch:** `task/2-display-filter-setting`
+**Date:** 2026-02-18
+
+**Changes Made:**
+
+Added a VS Code setting to control visibility of host-resolved/outdated comments and two new filter helper functions:
+
+- `prReview.showResolvedOrOutdated` setting in `package.json` — enum `"hide"` (default) or `"show"`
+- `getDisplayComments()` in `src/state.ts` — returns all comments filtered by the setting; when `"hide"`, excludes comments where `hostResolved` or `hostOutdated` is truthy
+- `getDisplayCommentsForFile(filePath)` in `src/state.ts` — same filter logic scoped to a single file
+
+**Files Modified:**
+- `package.json` — added `prReview.showResolvedOrOutdated` setting under `contributes.configuration.properties`
+- `src/state.ts` — added `getDisplayComments()` and `getDisplayCommentsForFile()` functions
+- `src/state.test.ts` — extended vscode mock with `workspace.getConfiguration`; added 9 new tests covering hide/show scenarios for both functions
+
+**Key Decisions:**
+- Filter uses truthiness check (`!c.hostResolved && !c.hostOutdated`) — `undefined` values pass through (AI comments are never filtered)
+- The vscode mock uses a module-level `mockShowResolvedOrOutdated` variable so tests can toggle the setting per test case
+- No version bump needed — this is an internal addition, not yet exposed to users
+
+**Test Results:** 195/195 tests pass
+
 ---
 
 ## Architecture Notes

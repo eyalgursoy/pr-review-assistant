@@ -58,16 +58,16 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 **Branch:** `task/2-display-filter-setting`
 
-- [ ] Branch created
-- [ ] `prReview.showResolvedOrOutdated` setting added to `package.json`
-- [ ] `getDisplayComments()` function added to `src/state.ts`
-- [ ] `getDisplayCommentsForFile()` function added to `src/state.ts`
-- [ ] Tests added to `src/state.test.ts`
-- [ ] `npm run build` passes
-- [ ] `npm test` passes
-- [ ] `npm run package` creates .vsix
-- [ ] Changes committed with proper message
-- [ ] `docs/pr-comments-summary.md` updated
+- [x] Branch created
+- [x] `prReview.showResolvedOrOutdated` setting added to `package.json`
+- [x] `getDisplayComments()` function added to `src/state.ts`
+- [x] `getDisplayCommentsForFile()` function added to `src/state.ts`
+- [x] Tests added to `src/state.test.ts`
+- [x] `npm run build` passes
+- [x] `npm test` passes (195/195)
+- [x] `npm run package` creates .vsix
+- [x] Changes committed with proper message
+- [x] `docs/pr-comments-summary.md` updated
 
 ---
 

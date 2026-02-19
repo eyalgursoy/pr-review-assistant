@@ -26,10 +26,10 @@ Download the latest `.vsix` from [GitHub Releases](https://github.com/eyalgursoy
 
 ```bash
 # Install in Cursor
-cursor --install-extension pr-review-assistant-0.17.3.vsix
+cursor --install-extension pr-review-assistant-0.17.4.vsix
 
 # Or in VS Code
-code --install-extension pr-review-assistant-0.17.3.vsix
+code --install-extension pr-review-assistant-0.17.4.vsix
 ```
 
 Replace `0.17.2` with the version you downloaded if different.
@@ -142,6 +142,7 @@ Open Settings (Cmd+,) and search for `prReview`:
 | `prReview.enableProjectDetection`   | Auto-detect project type and apply language/framework rules | `true`       |
 | `prReview.customRulesPath`          | Path to custom rules file (e.g. .pr-review-rules.json)     | ``           |
 | `prReview.preferredLanguageRules`   | Override detected languages (comma-separated, e.g. typescript,python) | `` |
+| `prReview.showResolvedOrOutdated`  | Show or hide host-resolved/outdated comments      | `hide`       |
 
 ### Secure API Key Storage (Recommended)
 
