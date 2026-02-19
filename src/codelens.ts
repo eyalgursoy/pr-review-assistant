@@ -6,8 +6,9 @@
  */
 
 import * as vscode from "vscode";
-import { getCommentsForFile, onStateChange } from "./state";
+import { getDisplayCommentsForFile, onStateChange } from "./state";
 import { sanitizeMarkdownForDisplay } from "./markdown-utils";
+import type { ReviewComment } from "./types";
 
 export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
   private _onDidChangeCodeLenses = new vscode.EventEmitter<void>();
@@ -22,7 +23,7 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
 
   provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
     const filePath = this.getRelativePath(document.uri);
-    const comments = getCommentsForFile(filePath);
+    const comments = getDisplayCommentsForFile(filePath);
 
     if (comments.length === 0) {
       return [];
@@ -38,14 +39,9 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
       );
       const range = new vscode.Range(line, 0, line, 0);
 
-      // Simple indicator - clicking focuses the comment thread
-      const severityEmoji = this.getSeverityEmoji(comment.severity);
-      const statusIcon = this.getStatusIcon(comment.status);
-      const shortIssue = this.truncate(comment.issue, 80);
-
       codeLenses.push(
         new vscode.CodeLens(range, {
-          title: `${statusIcon} ${severityEmoji} ${shortIssue}`,
+          title: buildCodeLensTitle(comment),
           command: "prReview.goToComment",
           arguments: [comment],
           tooltip: `Click to view comment details\n\n${comment.issue}`,
@@ -63,30 +59,39 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
     }
     return uri.fsPath;
   }
+}
 
-  private getSeverityEmoji(severity: string): string {
-    const emojis: Record<string, string> = {
-      critical: "🔴",
-      high: "🟠",
-      medium: "🟡",
-      low: "🟢",
-    };
-    return emojis[severity] || "⚪";
-  }
+function getSeverityEmoji(severity: string): string {
+  const emojis: Record<string, string> = {
+    critical: "🔴",
+    high: "🟠",
+    medium: "🟡",
+    low: "🟢",
+  };
+  return emojis[severity] || "⚪";
+}
 
-  private getStatusIcon(status: string): string {
-    const icons: Record<string, string> = {
-      pending: "○",
-      approved: "✓",
-      rejected: "✗",
-    };
-    return icons[status] || "○";
-  }
+function getStatusIcon(status: string): string {
+  const icons: Record<string, string> = {
+    pending: "○",
+    approved: "✓",
+    rejected: "✗",
+  };
+  return icons[status] || "○";
+}
 
-  private truncate(str: string, maxLength: number): string {
-    if (str.length <= maxLength) return str;
-    return str.slice(0, maxLength - 3) + "...";
-  }
+function truncate(str: string, maxLength: number): string {
+  if (str.length <= maxLength) return str;
+  return str.slice(0, maxLength - 3) + "...";
+}
+
+/** Build the CodeLens title string for a comment. Exported for testing. */
+export function buildCodeLensTitle(comment: ReviewComment): string {
+  const severityEmoji = getSeverityEmoji(comment.severity);
+  const statusIcon = getStatusIcon(comment.status);
+  const shortIssue = truncate(comment.issue, 80);
+  const sourceIndicator = comment.source === "ai" ? "[New] " : "";
+  return `${statusIcon} ${severityEmoji} ${sourceIndicator}${shortIssue}`;
 }
 
 /**
@@ -129,7 +134,7 @@ export function updateDecorations(
   decorations: ReturnType<typeof createCommentDecorations>
 ): void {
   const filePath = vscode.workspace.asRelativePath(editor.document.uri, false);
-  const comments = getCommentsForFile(filePath);
+  const comments = getDisplayCommentsForFile(filePath);
 
   const pending: vscode.DecorationOptions[] = [];
   const approved: vscode.DecorationOptions[] = [];

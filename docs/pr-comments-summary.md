@@ -107,6 +107,33 @@ Added a VS Code setting to control visibility of host-resolved/outdated comments
 
 **Test Results:** 195/195 tests pass
 
+### Task 7: CodeLens and Decorations
+
+**Branch:** `task/7-codelens-decorations-filter`
+**Date:** 2026-02-19
+
+**Changes Made:**
+
+Updated `src/codelens.ts` to use filtered comments and show a `[New]` prefix for AI-generated comments:
+
+- **`provideCodeLenses`** now calls `getDisplayCommentsForFile()` instead of `getCommentsForFile()`, so host-resolved/outdated comments are excluded when the setting is `"hide"`
+- **`buildCodeLensTitle`** extracted as an exported module-level function — takes a `ReviewComment` and returns the formatted title string including source indicator (`[New] ` prefix for `source === 'ai'`, nothing for `source === 'host'`); severity emoji, status icon, and truncated issue text are all included
+- **`updateDecorations`** similarly updated to call `getDisplayCommentsForFile()` instead of `getCommentsForFile()`
+- Helper functions (`getSeverityEmoji`, `getStatusIcon`, `truncate`) extracted to module level so `buildCodeLensTitle` can use them directly; the class methods that previously duplicated this logic were removed
+
+**Files Modified:**
+- `src/codelens.ts` — replaced `getCommentsForFile` with `getDisplayCommentsForFile`, extracted `buildCodeLensTitle` as exported function
+- `src/codelens.test.ts` (new) — 15 tests: 9 for `buildCodeLensTitle` (source indicator, severity, status, truncation) and 6 for `ReviewCodeLensProvider.provideCodeLenses` (filtering, [New] prefix, line clamping)
+
+**Key Decisions:**
+- `buildCodeLensTitle` is exported specifically to enable direct unit testing without needing to mock a full `vscode.TextDocument`
+- Module-level helpers keep the logic DRY and testable; class only retains `getRelativePath` for URI handling
+- The `[New]` indicator uses a space after it so it reads naturally: `○ 🟡 [New] Some issue text`
+
+**Test Results:** 258/258 tests pass
+
+---
+
 ### Task 6: Comments Panel Threading
 
 **Branch:** `task/6-comments-panel-threading`
