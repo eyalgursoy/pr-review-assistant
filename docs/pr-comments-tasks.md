@@ -114,19 +114,19 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 **Branch:** `task/5-tree-view-hierarchy`
 
-- [ ] Branch created
-- [ ] Import `getDisplayCommentsForFile` in tree-view.ts
-- [ ] Only root comments shown under files
-- [ ] Replies shown as children of parent comments
-- [ ] Comments with replies have `Collapsed` state
-- [ ] Host-resolved/outdated show indicator when visible
-- [ ] Host-resolved/outdated have no click command
-- [ ] Tests added to `src/tree-view.test.ts`
-- [ ] `npm run build` passes
-- [ ] `npm test` passes
-- [ ] `npm run package` creates .vsix
-- [ ] Changes committed with proper message
-- [ ] `docs/pr-comments-summary.md` updated
+- [x] Branch created
+- [x] Import `getDisplayCommentsForFile` in tree-view.ts
+- [x] Only root comments shown under files
+- [x] Replies shown as children of parent comments
+- [x] Comments with replies have `Collapsed` state
+- [x] Host-resolved/outdated show indicator when visible
+- [x] Host-resolved/outdated have no click command
+- [x] Tests added to `src/tree-view.test.ts`
+- [x] `npm run build` passes
+- [x] `npm test` passes (236/236)
+- [x] `npm run package` creates .vsix
+- [x] Changes committed with proper message
+- [x] `docs/pr-comments-summary.md` updated
 
 ---
 
