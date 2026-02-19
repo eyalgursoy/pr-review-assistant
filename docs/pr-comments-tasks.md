@@ -153,17 +153,17 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 **Branch:** `task/7-codelens-decorations-filter`
 
-- [ ] Branch created
-- [ ] CodeLens uses `getDisplayCommentsForFile()`
-- [ ] AI comments show "[New]" prefix
-- [ ] Host comments do not show "[New]"
-- [ ] Decorations use `getDisplayCommentsForFile()`
-- [ ] `src/codelens.test.ts` created
-- [ ] `npm run build` passes
-- [ ] `npm test` passes
-- [ ] `npm run package` creates .vsix
-- [ ] Changes committed with proper message
-- [ ] `docs/pr-comments-summary.md` updated
+- [x] Branch created
+- [x] CodeLens uses `getDisplayCommentsForFile()`
+- [x] AI comments show "[New]" prefix
+- [x] Host comments do not show "[New]"
+- [x] Decorations use `getDisplayCommentsForFile()`
+- [x] `src/codelens.test.ts` created
+- [x] `npm run build` passes
+- [x] `npm test` passes (258/258)
+- [x] `npm run package` creates .vsix
+- [x] Changes committed with proper message
+- [x] `docs/pr-comments-summary.md` updated
 
 ---
 

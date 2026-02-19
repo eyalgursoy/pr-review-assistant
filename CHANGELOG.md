@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.6] - 2026-02
+
+### Added
+
+- CodeLens now shows a `[New]` prefix for AI-generated review comments, making it easy to distinguish them from host PR comments at a glance.
+
+### Changed
+
+- CodeLens and editor line decorations now respect the `prReview.showResolvedOrOutdated` setting — host-resolved and outdated comments are hidden from inline indicators when the setting is `"hide"` (default).
+
 ## [0.17.5] - 2026-02
 
 ### Fixed
