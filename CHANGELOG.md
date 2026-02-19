@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.5] - 2026-02
+
+### Fixed
+
+- Comment threads in the editor no longer show strikethrough when a comment is locally approved or rejected. Strikethrough (Resolved state) now only applies to comments that are resolved or outdated on the host (GitHub/GitLab/Bitbucket).
+
+### Changed
+
+- One comment thread is now created per root comment; replies from host PR discussions are grouped inside the same thread instead of appearing as separate threads.
+- Comment threads now respect the `prReview.showResolvedOrOutdated` setting — hidden comments no longer generate threads in the editor.
+
 ## [0.17.4] - 2026-02
 
 ### Added

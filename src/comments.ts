@@ -10,6 +10,7 @@ import {
   updateCommentStatus,
   updateCommentText,
   getAllComments,
+  getDisplayComments,
 } from "./state";
 import { log } from "./logger";
 import { sanitizeMarkdownForDisplay } from "./markdown-utils";
@@ -228,7 +229,9 @@ function registerCommentCommands(context: vscode.ExtensionContext): void {
 }
 
 /**
- * Refresh all comment threads based on current state
+ * Refresh all comment threads based on current state.
+ * One thread per root comment; replies grouped inside the same thread.
+ * Uses display-filtered comments (respects showResolvedOrOutdated setting).
  */
 function refreshCommentThreads(): void {
   if (!commentController) {
@@ -236,59 +239,57 @@ function refreshCommentThreads(): void {
     return;
   }
 
-  const allComments = getAllComments();
+  const displayComments = getDisplayComments();
+  const rootComments = displayComments.filter((c) => !c.parentId);
 
-  log(`Refreshing comment threads: ${allComments.length} comments`);
+  log(`Refreshing comment threads: ${displayComments.length} display comments, ${rootComments.length} roots`);
 
-  // Track which threads we've updated
   const updatedThreadIds = new Set<string>();
 
-  for (const comment of allComments) {
-    const threadId = comment.id;
+  for (const root of rootComments) {
+    const threadId = root.id;
     updatedThreadIds.add(threadId);
 
-    // Get or create thread
     let thread = threadMap.get(threadId);
 
     if (!thread) {
-      // Create new thread
-      const uri = getFileUri(comment.file);
-      const line = Math.max(0, comment.line - 1);
+      const uri = getFileUri(root.file);
+      const line = Math.max(0, root.line - 1);
       const range = new vscode.Range(line, 0, line, 0);
 
       log(
-        `Creating comment thread: file=${
-          comment.file
-        }, uri=${uri.toString()}, line=${comment.line}, side=${comment.side}`
+        `Creating comment thread: file=${root.file}, uri=${uri.toString()}, line=${root.line}, side=${root.side}`
       );
 
       thread = commentController.createCommentThread(uri, range, []);
       thread.canReply = false;
-      thread.label = getSeverityLabel(comment.severity);
       threadMap.set(threadId, thread);
     }
 
-    // Update thread state based on comment status
-    thread.state = getThreadState(comment.status);
-    thread.contextValue = `prReviewThread-${comment.status}`;
-    thread.collapsibleState =
-      comment.status === "pending"
-        ? vscode.CommentThreadCollapsibleState.Expanded
-        : vscode.CommentThreadCollapsibleState.Collapsed;
+    const replies = displayComments.filter((c) => c.parentId === root.id);
 
-    // Create/update the comment in the thread
-    const prComment = new PRReviewComment(
-      formatCommentBody(comment),
-      vscode.CommentMode.Preview,
-      getAuthorInfo(comment),
-      comment,
-      thread
+    const threadComments = [root, ...replies].map(
+      (c) =>
+        new PRReviewComment(
+          formatCommentBody(c),
+          vscode.CommentMode.Preview,
+          getAuthorInfo(c),
+          c,
+          thread
+        )
     );
 
-    thread.comments = [prComment];
+    thread.comments = threadComments;
+    thread.label = getSeverityLabel(root.severity);
+    thread.state = getThreadState(root);
+    thread.contextValue = `prReviewThread-${root.status}`;
+    thread.collapsibleState =
+      root.status === "pending"
+        ? vscode.CommentThreadCollapsibleState.Expanded
+        : vscode.CommentThreadCollapsibleState.Collapsed;
   }
 
-  // Remove threads that no longer exist
+  // Remove threads that no longer exist in the filtered set
   for (const [threadId, thread] of threadMap) {
     if (!updatedThreadIds.has(threadId)) {
       thread.dispose();
@@ -369,16 +370,15 @@ function getAuthorInfo(comment: ReviewComment): vscode.CommentAuthorInformation 
 }
 
 /**
- * Get thread state based on comment status
+ * Get thread state based on host resolution/outdated status.
+ * Only hostResolved/hostOutdated cause strikethrough (Resolved state).
+ * Local status (approved/rejected) does NOT — those stay Unresolved.
  */
-function getThreadState(status: CommentStatus): vscode.CommentThreadState {
-  switch (status) {
-    case "approved":
-    case "rejected":
-      return vscode.CommentThreadState.Resolved;
-    default:
-      return vscode.CommentThreadState.Unresolved;
+export function getThreadState(comment: ReviewComment): vscode.CommentThreadState {
+  if (comment.hostResolved || comment.hostOutdated) {
+    return vscode.CommentThreadState.Resolved;
   }
+  return vscode.CommentThreadState.Unresolved;
 }
 
 /**

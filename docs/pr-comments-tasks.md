@@ -134,18 +134,18 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 **Branch:** `task/6-comments-panel-threading`
 
-- [ ] Branch created
-- [ ] Import `getDisplayComments` in comments.ts
-- [ ] One thread per root comment
-- [ ] Replies grouped in parent's thread
-- [ ] `getThreadState` fixed: Resolved only for hostResolved/hostOutdated
-- [ ] Local approval does NOT cause strikethrough
-- [ ] Tests added to `src/comments.test.ts`
-- [ ] `npm run build` passes
-- [ ] `npm test` passes
-- [ ] `npm run package` creates .vsix
-- [ ] Changes committed with proper message
-- [ ] `docs/pr-comments-summary.md` updated
+- [x] Branch created
+- [x] Import `getDisplayComments` in comments.ts
+- [x] One thread per root comment
+- [x] Replies grouped in parent's thread
+- [x] `getThreadState` fixed: Resolved only for hostResolved/hostOutdated
+- [x] Local approval does NOT cause strikethrough
+- [x] Tests added to `src/comments.test.ts`
+- [x] `npm run build` passes
+- [x] `npm test` passes (243/243)
+- [x] `npm run package` creates .vsix
+- [x] Changes committed with proper message
+- [x] `docs/pr-comments-summary.md` updated
 
 ---
 
