@@ -207,6 +207,22 @@ export function getAllComments(): ReviewComment[] {
 }
 
 /**
+ * Filter comments that duplicate an existing comment at the same file+line.
+ * A duplicate is defined as: same file path AND line number within ±1 line tolerance.
+ */
+export function deduplicateComments(
+  incoming: ReviewComment[],
+  existing: ReviewComment[]
+): ReviewComment[] {
+  return incoming.filter(
+    (inc) =>
+      !existing.some(
+        (ex) => ex.file === inc.file && Math.abs(ex.line - inc.line) <= 1
+      )
+  );
+}
+
+/**
  * Get approved comments
  */
 export function getApprovedComments(): ReviewComment[] {

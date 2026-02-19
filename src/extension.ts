@@ -34,6 +34,7 @@ import {
   allCommentsRejected,
   onStateChange,
   getAllComments,
+  deduplicateComments,
 } from "./state";
 import {
   parsePRUrl,
@@ -857,14 +858,23 @@ async function runReview() {
     // Store the summary
     setSummary(result.summary);
 
-    if (result.comments.length === 0) {
+    const existingComments = getAllComments();
+    const uniqueComments = deduplicateComments(result.comments, existingComments);
+
+    if (uniqueComments.length === 0) {
       focusCommentsView();
-      vscode.window.showInformationMessage(
-        result.summary || "AI found no issues in this PR!"
-      );
+      if (result.comments.length === 0) {
+        vscode.window.showInformationMessage(
+          result.summary || "AI found no issues in this PR!"
+        );
+      } else {
+        vscode.window.showInformationMessage(
+          "AI found no new issues beyond those already filed."
+        );
+      }
     } else {
-      addComments(result.comments);
-      log(`Added ${result.comments.length} comments to state`);
+      addComments(uniqueComments);
+      log(`Added ${uniqueComments.length} comments to state`);
 
       focusCommentsView();
 
@@ -875,7 +885,7 @@ async function runReview() {
       if (showLogPrompt) {
         // Show log prompt for debugging
         const viewLog = await vscode.window.showInformationMessage(
-          `AI found ${result.comments.length} issue(s) to review`,
+          `AI found ${uniqueComments.length} issue(s) to review`,
           "View Log"
         );
         if (viewLog === "View Log") {
@@ -884,7 +894,7 @@ async function runReview() {
       } else {
         // Just show a simple notification without blocking
         vscode.window.showInformationMessage(
-          `AI found ${result.comments.length} issue(s) to review`
+          `AI found ${uniqueComments.length} issue(s) to review`
         );
       }
     }

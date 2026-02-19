@@ -52,6 +52,7 @@ import {
   getCommentsForFile,
   getDisplayComments,
   getDisplayCommentsForFile,
+  deduplicateComments,
 } from "./state";
 import type { PRInfo, ChangedFile, ReviewComment } from "./types";
 
@@ -441,6 +442,55 @@ describe("state", () => {
       it("returns empty array for file with no comments", () => {
         expect(getDisplayCommentsForFile("src/nonexistent.ts")).toEqual([]);
       });
+    });
+  });
+
+  describe("deduplicateComments", () => {
+    const make = (id: string, file: string, line: number): ReviewComment => ({
+      id,
+      file,
+      line,
+      side: "RIGHT",
+      severity: "medium",
+      issue: `Issue ${id}`,
+      status: "pending",
+      source: "ai",
+    });
+
+    it("returns all incoming when no existing comments", () => {
+      const incoming = [make("1", "src/a.ts", 5), make("2", "src/b.ts", 10)];
+      const result = deduplicateComments(incoming, []);
+      expect(result).toHaveLength(2);
+      expect(result).toEqual(incoming);
+    });
+
+    it("filters comment with exact same file and line", () => {
+      const existing = [make("e1", "src/foo.ts", 10)];
+      const incoming = [make("i1", "src/foo.ts", 10)];
+      const result = deduplicateComments(incoming, existing);
+      expect(result).toHaveLength(0);
+    });
+
+    it("filters comment within ±1 line tolerance", () => {
+      const existing = [make("e1", "src/foo.ts", 10)];
+      expect(deduplicateComments([make("i1", "src/foo.ts", 9)], existing)).toHaveLength(0);
+      expect(deduplicateComments([make("i1", "src/foo.ts", 11)], existing)).toHaveLength(0);
+    });
+
+    it("keeps comment on different file, same line", () => {
+      const existing = [make("e1", "src/a.ts", 10)];
+      const incoming = [make("i1", "src/b.ts", 10)];
+      const result = deduplicateComments(incoming, existing);
+      expect(result).toHaveLength(1);
+      expect(result[0]!.file).toBe("src/b.ts");
+    });
+
+    it("keeps comment on same file when line difference is greater than 1", () => {
+      const existing = [make("e1", "src/foo.ts", 10)];
+      const incoming = [make("i1", "src/foo.ts", 12)];
+      const result = deduplicateComments(incoming, existing);
+      expect(result).toHaveLength(1);
+      expect(result[0]!.line).toBe(12);
     });
   });
 

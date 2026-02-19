@@ -58,17 +58,17 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 **Branch:** `task/2-dedup-ai-comments`
 
-- [ ] Branch created
-- [ ] `deduplicateComments(incoming, existing)` added to `src/state.ts`
-- [ ] `runReview()` calls deduplicate before `addComments`
-- [ ] "No new issues" message when all duplicates
-- [ ] Tests added in `src/state.test.ts`
-- [ ] `npm run build` passes
-- [ ] `npm test` passes
-- [ ] `npm run package` creates .vsix
-- [ ] Version bumped, README/CHANGELOG updated
-- [ ] Changes committed with proper message
-- [ ] `docs/ai-review-context-summary.md` updated
+- [x] Branch created
+- [x] `deduplicateComments(incoming, existing)` added to `src/state.ts`
+- [x] `runReview()` calls deduplicate before `addComments`
+- [x] "No new issues" message when all duplicates
+- [x] Tests added in `src/state.test.ts`
+- [x] `npm run build` passes
+- [x] `npm test` passes (277/277)
+- [x] `npm run package` creates .vsix
+- [x] Version bumped, README/CHANGELOG updated
+- [x] Changes committed with proper message
+- [x] `docs/ai-review-context-summary.md` updated
 
 ---
 

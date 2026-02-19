@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.9] - 2026-02
+
+### Changed
+
+- AI review no longer adds duplicate comments: findings that target the same file and line (within ±1 line) as an existing comment are filtered out before being added. When all AI findings are duplicates, a message explains that no new issues were found.
+
 ## [0.17.8] - 2026-02
 
 ### Changed

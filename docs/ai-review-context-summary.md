@@ -59,6 +59,23 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 ---
 
+### Task 2: Deduplicate AI Comments Before Adding
+
+**Branch:** `task/2-dedup-ai-comments`
+**Date:** 2026-02-19
+
+**Changes Made:**
+
+- **`src/state.ts`**: Added `deduplicateComments(incoming, existing)`. Filters out any incoming comment that has the same file and line within ±1 of an existing comment.
+- **`src/extension.ts`**: In `runReview()`, after `runAIReview` returns, call `getAllComments()` and `deduplicateComments(result.comments, existingComments)`. Add only `uniqueComments`; when all are duplicates, show "AI found no new issues beyond those already filed." Log and user messages use `uniqueComments.length`.
+- **`src/state.test.ts`**: Added 5 tests for deduplicateComments (all when empty existing, exact same file+line, ±1 tolerance, different file same line, same file line diff > 1).
+
+**Files Modified:** `src/state.ts`, `src/extension.ts`, `src/state.test.ts`, `package.json`, `README.md`, `CHANGELOG.md`, `docs/ai-review-context-tasks.md`, `docs/ai-review-context-summary.md`
+
+**Test Results:** 277/277 pass
+
+---
+
 ## Test Commands
 
 ```bash
