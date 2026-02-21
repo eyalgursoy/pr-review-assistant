@@ -34,6 +34,10 @@ import {
   allCommentsRejected,
   onStateChange,
   getAllComments,
+  deduplicateComments,
+  clearAIComments,
+  buildStatusStorageKey,
+  type PersistedStatuses,
 } from "./state";
 import {
   parsePRUrl,
@@ -113,6 +117,27 @@ function getRestoreStack(): RestoreStackEntry[] {
 
 function setRestoreStack(stack: RestoreStackEntry[]): void {
   extensionContext.globalState.update(RESTORE_STACK_KEY, stack);
+}
+
+/**
+ * Persist a comment's status to workspaceState so it survives PR reload.
+ * Exported for testing.
+ */
+export function persistCommentStatus(
+  commentId: string,
+  status: import("./types").CommentStatus,
+  pr: import("./types").PRInfo | null,
+  workspaceState: Pick<vscode.Memento, "get" | "update"> | undefined
+): void {
+  if (!pr || !workspaceState) return;
+  const key = buildStatusStorageKey(pr.owner, pr.repo, pr.number);
+  const stored = workspaceState.get<PersistedStatuses>(key, {});
+  stored[commentId] = status;
+  workspaceState.update(key, stored);
+}
+
+function persistCommentStatusForCurrentPR(commentId: string, status: import("./types").CommentStatus): void {
+  persistCommentStatus(commentId, status, getState().pr, extensionContext?.workspaceState);
 }
 
 /**
@@ -422,6 +447,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         const commentId = typeof arg === "string" ? arg : arg?.comment?.id;
         if (commentId) {
           updateCommentStatus(commentId, "approved");
+          persistCommentStatusForCurrentPR(commentId, "approved");
           await checkAllCommentsReviewed();
         }
       }
@@ -436,6 +462,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         const commentId = typeof arg === "string" ? arg : arg?.comment?.id;
         if (commentId) {
           updateCommentStatus(commentId, "rejected");
+          persistCommentStatusForCurrentPR(commentId, "rejected");
           await checkAllCommentsReviewed();
         }
       }
@@ -670,6 +697,14 @@ async function startReview() {
         );
         if (hostComments.length > 0) {
           addComments(hostComments);
+          // Restore persisted approve/reject statuses for this PR
+          if (extensionContext) {
+            const key = buildStatusStorageKey(parsed.owner, parsed.repo, parsed.number);
+            const savedStatuses = extensionContext.workspaceState.get<PersistedStatuses>(key, {});
+            for (const [commentId, status] of Object.entries(savedStatuses)) {
+              updateCommentStatus(commentId, status);
+            }
+          }
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -811,6 +846,12 @@ async function runReview() {
   startProgress();
 
   try {
+    // Clear previous AI comments so re-run shows only fresh results; host comments are preserved
+    const hasExistingAI = getAllComments().some((c) => c.source === "ai");
+    if (hasExistingAI) {
+      clearAIComments();
+    }
+
     // Detect project context for rules (unless disabled)
     const config = vscode.workspace.getConfiguration("prReview");
     const enableProjectDetection = config.get<boolean>(
@@ -857,14 +898,23 @@ async function runReview() {
     // Store the summary
     setSummary(result.summary);
 
-    if (result.comments.length === 0) {
+    const existingComments = getAllComments();
+    const uniqueComments = deduplicateComments(result.comments, existingComments);
+
+    if (uniqueComments.length === 0) {
       focusCommentsView();
-      vscode.window.showInformationMessage(
-        result.summary || "AI found no issues in this PR!"
-      );
+      if (result.comments.length === 0) {
+        vscode.window.showInformationMessage(
+          result.summary || "AI found no issues in this PR!"
+        );
+      } else {
+        vscode.window.showInformationMessage(
+          "AI found no new issues beyond those already filed."
+        );
+      }
     } else {
-      addComments(result.comments);
-      log(`Added ${result.comments.length} comments to state`);
+      addComments(uniqueComments);
+      log(`Added ${uniqueComments.length} comments to state`);
 
       focusCommentsView();
 
@@ -875,7 +925,7 @@ async function runReview() {
       if (showLogPrompt) {
         // Show log prompt for debugging
         const viewLog = await vscode.window.showInformationMessage(
-          `AI found ${result.comments.length} issue(s) to review`,
+          `AI found ${uniqueComments.length} issue(s) to review`,
           "View Log"
         );
         if (viewLog === "View Log") {
@@ -884,7 +934,7 @@ async function runReview() {
       } else {
         // Just show a simple notification without blocking
         vscode.window.showInformationMessage(
-          `AI found ${result.comments.length} issue(s) to review`
+          `AI found ${uniqueComments.length} issue(s) to review`
         );
       }
     }
@@ -1096,6 +1146,7 @@ async function editComment(commentId: string) {
 
   // Revert to pending so user can re-review after edit
   updateCommentStatus(commentId, "pending");
+  persistCommentStatusForCurrentPR(commentId, "pending");
 
   const currentText =
     comment.editedText || `**${comment.issue}**\n\n${comment.suggestion || ""}`;
@@ -1267,6 +1318,7 @@ export async function generateSuggestionForComment(comment: ReviewComment) {
 
     updateCommentText(comment.id, newBody);
     updateCommentStatus(comment.id, "pending");
+    persistCommentStatusForCurrentPR(comment.id, "pending");
 
     vscode.window.showInformationMessage("Suggested fix added to comment");
   } catch (error) {
