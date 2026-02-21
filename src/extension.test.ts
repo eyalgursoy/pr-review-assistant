@@ -135,6 +135,8 @@ vi.mock("./state", () => ({
   onStateChange: vi.fn(() => ({ dispose: vi.fn() })),
   getDisplayComments: vi.fn(() => []),
   getDisplayCommentsForFile: vi.fn(() => []),
+  buildStatusStorageKey: (owner: string, repo: string, prNumber: number) =>
+    `prReview.statuses.${owner}/${repo}#${prNumber}`,
 }));
 
 vi.mock("./github", () => ({
@@ -186,7 +188,12 @@ vi.mock("./project-detector", () => ({
 }));
 
 import type { ReviewComment } from "./types";
-import { goToComment, fixInChat, generateSuggestionForComment } from "./extension";
+import {
+  goToComment,
+  fixInChat,
+  generateSuggestionForComment,
+  persistCommentStatus,
+} from "./extension";
 
 function makeComment(overrides: Partial<ReviewComment> = {}): ReviewComment {
   return {
@@ -315,5 +322,54 @@ describe("generateSuggestionForComment guards", () => {
     expect(mockShowInformationMessage).not.toHaveBeenCalledWith(
       expect.stringContaining("resolved")
     );
+  });
+});
+
+describe("persistCommentStatus", () => {
+  it("writes status to workspaceState when pr and workspaceState provided", () => {
+    const mockUpdate = vi.fn();
+    const mockGet = vi.fn(() => ({}));
+    const pr = {
+      owner: "org",
+      repo: "repo",
+      number: 42,
+      title: "Test",
+      headBranch: "main",
+      baseBranch: "develop",
+      url: "https://x",
+      host: "github" as const,
+    };
+    persistCommentStatus("comment-1", "approved", pr, {
+      get: mockGet,
+      update: mockUpdate,
+    });
+    expect(mockGet).toHaveBeenCalledWith("prReview.statuses.org/repo#42", {});
+    expect(mockUpdate).toHaveBeenCalledWith("prReview.statuses.org/repo#42", {
+      "comment-1": "approved",
+    });
+  });
+
+  it("does not call update when pr is null", () => {
+    const mockUpdate = vi.fn();
+    persistCommentStatus("comment-1", "approved", null, {
+      get: () => ({}),
+      update: mockUpdate,
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("does not call update when workspaceState is undefined", () => {
+    const pr = {
+      owner: "o",
+      repo: "r",
+      number: 1,
+      title: "",
+      headBranch: "",
+      baseBranch: "",
+      url: "",
+      host: "github" as const,
+    };
+    persistCommentStatus("comment-1", "rejected", pr, undefined);
+    // No mock to assert; just ensure no throw
   });
 });

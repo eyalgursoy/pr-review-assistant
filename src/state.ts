@@ -223,6 +223,36 @@ export function deduplicateComments(
 }
 
 /**
+ * Remove all comments with source === 'ai' from state.
+ * Host comments are preserved. File entries with no remaining comments are removed.
+ */
+export function clearAIComments(): void {
+  state = {
+    ...state,
+    files: state.files
+      .map((file) => ({
+        ...file,
+        comments: file.comments.filter((c) => c.source !== "ai"),
+      }))
+      .filter((file) => file.comments.length > 0),
+  };
+  updateContextKeys();
+  stateChangeEmitter.fire(state);
+}
+
+/** Storage key for persisted comment statuses per PR. Format: prReview.statuses.{owner}/{repo}#{prNumber} */
+export function buildStatusStorageKey(
+  owner: string,
+  repo: string,
+  prNumber: number
+): string {
+  return `prReview.statuses.${owner}/${repo}#${prNumber}`;
+}
+
+/** Map of comment ID to local status for persistence in workspaceState */
+export type PersistedStatuses = Record<string, CommentStatus>;
+
+/**
  * Get approved comments
  */
 export function getApprovedComments(): ReviewComment[] {
