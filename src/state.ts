@@ -240,6 +240,18 @@ export function clearAIComments(): void {
   stateChangeEmitter.fire(state);
 }
 
+/** Storage key for persisted comment statuses per PR. Format: prReview.statuses.{owner}/{repo}#{prNumber} */
+export function buildStatusStorageKey(
+  owner: string,
+  repo: string,
+  prNumber: number
+): string {
+  return `prReview.statuses.${owner}/${repo}#${prNumber}`;
+}
+
+/** Map of comment ID to local status for persistence in workspaceState */
+export type PersistedStatuses = Record<string, CommentStatus>;
+
 /**
  * Get approved comments
  */

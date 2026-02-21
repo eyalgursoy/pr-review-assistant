@@ -54,6 +54,7 @@ import {
   getDisplayCommentsForFile,
   deduplicateComments,
   clearAIComments,
+  buildStatusStorageKey,
 } from "./state";
 import type { PRInfo, ChangedFile, ReviewComment } from "./types";
 
@@ -547,6 +548,14 @@ describe("state", () => {
       expect(files).toHaveLength(1);
       expect(files[0]!.path).toBe("src/mixed.ts");
       expect(files[0]!.comments).toHaveLength(1);
+    });
+  });
+
+  describe("buildStatusStorageKey", () => {
+    it("returns key in format prReview.statuses.owner/repo#prNumber", () => {
+      expect(buildStatusStorageKey("my-org", "my-repo", 123)).toBe(
+        "prReview.statuses.my-org/my-repo#123"
+      );
     });
   });
 

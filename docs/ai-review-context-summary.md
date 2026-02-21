@@ -93,6 +93,24 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 ---
 
+### Task 4: Persist Local Comment Statuses Across Sessions
+
+**Branch:** `task/4-persist-comment-statuses`
+**Date:** 2026-02-19
+
+**Changes Made:**
+
+- **`src/state.ts`**: Added `buildStatusStorageKey(owner, repo, prNumber)` and type `PersistedStatuses` (Record<string, CommentStatus>) for workspaceState persistence.
+- **`src/extension.ts`**: Added `persistCommentStatus(commentId, status, pr, workspaceState)` (exported for tests) and `persistCommentStatusForCurrentPR(commentId, status)` which uses getState().pr and extensionContext.workspaceState. Called after every updateCommentStatus in approve, reject, edit (pending), and generateSuggestion (pending). In `loadPR()`, after addComments(hostComments), restore statuses from workspaceState with the same key and call updateCommentStatus for each saved (commentId, status).
+- **`src/state.test.ts`**: Added test that buildStatusStorageKey returns "prReview.statuses.owner/repo#prNumber".
+- **`src/extension.test.ts`**: Added buildStatusStorageKey to state mock; added describe("persistCommentStatus") with 3 tests (writes to workspaceState when pr and state provided, no update when pr null, no update when workspaceState undefined).
+
+**Files Modified:** `src/state.ts`, `src/extension.ts`, `src/state.test.ts`, `src/extension.test.ts`, `package.json`, `README.md`, `CHANGELOG.md`, `docs/ai-review-context-tasks.md`, `docs/ai-review-context-summary.md`
+
+**Test Results:** 285/285 pass
+
+---
+
 ## Test Commands
 
 ```bash

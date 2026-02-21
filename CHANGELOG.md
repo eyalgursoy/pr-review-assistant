@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.11] - 2026-02
+
+### Added
+
+- Comment approval and rejection status (approved/rejected/pending) are now persisted per PR in workspace state. When you reload the same PR, your previous decisions are restored so you don't have to re-approve or re-reject comments.
+
 ## [0.17.10] - 2026-02
 
 ### Changed
