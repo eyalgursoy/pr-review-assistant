@@ -4,6 +4,7 @@
  */
 
 import type { ProjectContext } from "./project-detector";
+import type { ReviewComment } from "./types";
 import {
   loadRulesForContext,
   formatRulesForPrompt,
@@ -45,13 +46,21 @@ export async function buildReviewPrompt(
   prTitle: string,
   _diff: string,
   projectContext: ProjectContext,
-  workspaceRoot?: string | null
+  workspaceRoot?: string | null,
+  existingComments?: ReviewComment[]
 ): Promise<string> {
   const rules = await loadRulesForContext(
     projectContext,
     workspaceRoot ?? projectContext.rootPath ?? undefined
   );
   const rulesSection = formatRulesForPrompt(rules);
+
+  const existingSection =
+    existingComments && existingComments.length > 0
+      ? `\n---\n\n## Already Filed Comments\n\nThe following issues have already been raised on this PR. Do NOT repeat them. Focus only on issues not yet covered.\n\n${existingComments
+          .map((c) => `- **${c.file}:${c.line}** — ${c.issue}`)
+          .join("\n")}\n`
+      : "";
 
   return `${REVIEW_TEMPLATE}
 
@@ -69,7 +78,7 @@ ${rulesSection}
 
 - **Title**: ${prTitle}
 - **Branch**: ${headBranch} → ${baseBranch}
-
+${existingSection}
 ## Code Changes
 
 Please review the following diff:`;

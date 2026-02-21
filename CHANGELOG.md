@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.11] - 2026-02
+
+### Added
+
+- Comment approval and rejection status (approved/rejected/pending) are now persisted per PR in workspace state. When you reload the same PR, your previous decisions are restored so you don't have to re-approve or re-reject comments.
+
+## [0.17.10] - 2026-02
+
+### Changed
+
+- Re-running AI review on the same PR now clears previous AI comments first, so the view shows only the latest AI results alongside existing host (PR) comments.
+
+## [0.17.9] - 2026-02
+
+### Changed
+
+- AI review no longer adds duplicate comments: findings that target the same file and line (within ±1 line) as an existing comment are filtered out before being added. When all AI findings are duplicates, a message explains that no new issues were found.
+
+## [0.17.8] - 2026-02
+
+### Changed
+
+- AI review prompt now includes existing host (PR) comments so the AI avoids repeating already-filed issues and focuses on new ones when you re-run review on the same PR.
+
 ## [0.17.7] - 2026-02
 
 ### Changed
