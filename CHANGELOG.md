@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upgrade ESLint to 10.0.1 (fixes remaining minimatch in eslint tree). Add direct `globals` devDependency for flat config. Remove eslint from overrides (no longer needed).
 - Bump @typescript-eslint/eslint-plugin and @typescript-eslint/parser to ^8.56.0 (align with ESLint 10).
 
+### Changed
+
+- CONTRIBUTING: document minimatch override and vsce audit findings; note on vsce package secretlint error in some environments.
+
 ### Added
 
 - GitHub PR comments now use GraphQL to fetch thread resolution and outdated state. Resolved and outdated threads are marked correctly so they can be hidden when **Show resolved/outdated** is set to "hide" (default).

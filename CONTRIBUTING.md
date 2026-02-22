@@ -49,6 +49,11 @@ code --install-extension pr-review-assistant-0.1.0.vsix
 | `npm run package`    | Create .vsix package           |
 | `npm run publish`    | Publish to VS Code Marketplace |
 
+### Dependency and security notes
+
+- **npm audit**: The project uses an npm `overrides` entry so that ESLint and TypeScript-ESLint use a safe `minimatch` version (ReDoS fix). `npm audit` may still report 2 high findings for `@vscode/vsce` (dev-only); those are accepted until vsce ships an updated dependency. Packaging and publishing are unaffected.
+- If `npm run package` fails with a secretlint/p-map "concurrency" error, try running it from a normal terminal (some CI or sandbox environments can trigger this).
+
 ## Releasing a New Version
 
 ### 1. Update Version Number
