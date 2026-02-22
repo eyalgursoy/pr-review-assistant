@@ -465,7 +465,8 @@
     "@typescript-eslint/parser": "^8.54.0",
     "@vitest/coverage-v8": "^4.0.18",
     "@vscode/vsce": "^3.0.0",
-    "eslint": "^9.39.2",
+    "eslint": "^10.0.1",
+    "globals": "^14.0.0",
     "ts-loader": "^9.5.0",
     "typescript": "^5.3.0",
     "vitest": "^4.0.18",
@@ -481,9 +482,6 @@
     "zod": "^3.25.76"
   },
   "overrides": {
-    "eslint": {
-      "minimatch": ">=10.2.1"
-    },
     "@typescript-eslint/typescript-estree": {
       "minimatch": ">=10.2.1"
     }
