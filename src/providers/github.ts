@@ -13,6 +13,10 @@ import {
   writeSecureTempFile,
 } from "../shell-utils";
 import { log } from "../logger";
+import {
+  fetchReviewThreadsResolution,
+  applyGraphQLResolution,
+} from "./github-graphql";
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -337,7 +341,7 @@ export const githubProvider: PRProvider = {
     validateOwnerRepo(repo, "repo");
 
     const cwd = getWorkspacePath();
-    const all: ReviewComment[] = [];
+    const allRaw: GhComment[] = [];
     const perPage = 100;
     let page = 1;
 
@@ -373,13 +377,28 @@ export const githubProvider: PRProvider = {
 
       if (items.length === 0) break;
 
-      all.push(...mapGitHubComments(items));
+      allRaw.push(...items);
 
       if (items.length < perPage) break;
       page += 1;
     }
 
-    return all;
+    // Map once so idMap includes every comment (fixes parentId for replies across pages)
+    const comments = mapGitHubComments(allRaw);
+
+    try {
+      const resolutionMap = await fetchReviewThreadsResolution(
+        owner,
+        repo,
+        prNumber,
+        cwd
+      );
+      return applyGraphQLResolution(comments, resolutionMap);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      log("fetchReviewThreadsResolution failed (using REST-only):", msg);
+      return comments;
+    }
   },
 
   async submitReviewComments(
