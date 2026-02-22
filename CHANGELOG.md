@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add npm overrides to fix minimatch ReDoS (GHSA-3ppc-4f35-3m26) in ESLint and @typescript-eslint dependency trees. @vscode/vsce remains on vulnerable minimatch (dev-only; packaging still works) until upstream fix.
 - Upgrade ESLint to 10.0.1 (fixes remaining minimatch in eslint tree). Add direct `globals` devDependency for flat config. Remove eslint from overrides (no longer needed).
+- Bump @typescript-eslint/eslint-plugin and @typescript-eslint/parser to ^8.56.0 (align with ESLint 10).
 
 ### Added
 
