@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - GitHub PR comments now use GraphQL to fetch thread resolution and outdated state. Resolved and outdated threads are marked correctly so they can be hidden when **Show resolved/outdated** is set to "hide" (default).
 
+### Fixed
+
+- When the AI returns a non-JSON response (e.g. provider error), the UI now shows the actual error message instead of a generic "Could not find JSON object" message. Redundant prefix text and Cursor's "S:" type prefix are stripped for a cleaner toast.
+
 ## [0.17.11] - 2026-02
 
 ### Added
