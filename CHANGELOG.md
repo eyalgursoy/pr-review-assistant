@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Add npm overrides to fix minimatch ReDoS (GHSA-3ppc-4f35-3m26) in ESLint and @typescript-eslint dependency trees. @vscode/vsce remains on vulnerable minimatch (dev-only; packaging still works) until upstream fix.
+
 ### Added
 
 - GitHub PR comments now use GraphQL to fetch thread resolution and outdated state. Resolved and outdated threads are marked correctly so they can be hidden when **Show resolved/outdated** is set to "hide" (default).

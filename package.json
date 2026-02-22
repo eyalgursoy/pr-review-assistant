@@ -479,5 +479,13 @@
     "groq-sdk": "^0.37.0",
     "openai": "^4.77.0",
     "zod": "^3.25.76"
+  },
+  "overrides": {
+    "eslint": {
+      "minimatch": ">=10.2.1"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": ">=10.2.1"
+    }
   }
 }
