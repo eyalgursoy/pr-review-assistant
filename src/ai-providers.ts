@@ -367,6 +367,24 @@ function truncateDiff(diff: string, maxLength = 150000): string {
   );
 }
 
+const RESPONSE_EXCERPT_MAX_LENGTH = 400;
+
+/**
+ * Format a raw AI response for inclusion in error messages: strip leading "S:" (Cursor type prefix), truncate, collapse whitespace, strip control chars.
+ */
+function formatResponseExcerpt(response: string, maxLength = RESPONSE_EXCERPT_MAX_LENGTH): string {
+  if (!response || !response.trim()) return "(empty)";
+  let collapsed = response
+    .replace(/[\x00-\x1F\x7F]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  // Strip Cursor-style "S:" type prefix so the user sees only the message
+  collapsed = collapsed.replace(/^S:\s*/, "").trim();
+  if (!collapsed) return "(empty)";
+  if (collapsed.length <= maxLength) return collapsed;
+  return collapsed.substring(0, maxLength) + "...";
+}
+
 /**
  * Parse AI response into AIReviewResult with summary and comments
  */
@@ -412,9 +430,8 @@ function parseAIResponse(response: string): AIReviewResult {
       return { summary: "No issues found. Code looks good!", comments: [] };
     }
     logError("Could not find JSON object boundaries in response");
-    throw new Error(
-      "Could not find JSON object in AI response. The AI may have returned an invalid format."
-    );
+    const excerpt = formatResponseExcerpt(response);
+    throw new Error(excerpt);
   }
 
   jsonStr = jsonStr.slice(startIdx, endIdx + 1);
@@ -571,9 +588,8 @@ function parseAIResponse(response: string): AIReviewResult {
       logError("Aggressive clean also failed", e2);
     }
 
-    throw new Error(
-      "Failed to parse AI response. The AI returned invalid JSON. Check the Output panel for details."
-    );
+    const excerpt = formatResponseExcerpt(jsonStr);
+    throw new Error(excerpt);
   }
 }
 
