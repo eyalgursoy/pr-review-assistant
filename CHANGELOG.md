@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.2] - 2026-02-22
+
 ### Security
 
 - Add npm overrides to fix minimatch ReDoS (GHSA-3ppc-4f35-3m26) in ESLint and @typescript-eslint dependency trees. @vscode/vsce remains on vulnerable minimatch (dev-only; packaging still works) until upstream fix.
