@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Validate in Chat** action for PR comments: opens chat with validation-focused context (role hint, full file content, no-code-changes instruction). The LLM validates whether the review issue is actually valid and concludes either "valid → fix in Agent / Fix in Chat" or "not valid" with a suggested reply. Use Ask mode for validation-only workflow.
+
 ### Fixed
 
 - Pending/approved/rejected counters and submit button now correctly exclude filtered comments (resolved/outdated). When `showResolvedOrOutdated` is set to "hide", only visible comments are counted, fixing the issue where filtered comments were incorrectly included in the pending count.

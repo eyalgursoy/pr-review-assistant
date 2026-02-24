@@ -191,6 +191,7 @@ import type { ReviewComment } from "./types";
 import {
   goToComment,
   fixInChat,
+  validateInChat,
   generateSuggestionForComment,
   persistCommentStatus,
 } from "./extension";
@@ -280,6 +281,40 @@ describe("fixInChat guards", () => {
     });
     mockShowTextDocument.mockResolvedValue({});
     await fixInChat(makeComment({ hostOutdated: false, hostResolved: false }));
+    expect(mockShowInformationMessage).not.toHaveBeenCalledWith(
+      expect.stringContaining("outdated")
+    );
+    expect(mockShowInformationMessage).not.toHaveBeenCalledWith(
+      expect.stringContaining("resolved")
+    );
+  });
+});
+
+describe("validateInChat guards", () => {
+  it("shows outdated message and returns early for hostOutdated", async () => {
+    await validateInChat(makeComment({ hostOutdated: true }));
+    expect(mockShowInformationMessage).toHaveBeenCalledWith(
+      expect.stringContaining("outdated")
+    );
+    expect(mockOpenTextDocument).not.toHaveBeenCalled();
+  });
+
+  it("shows resolved message and returns early for hostResolved", async () => {
+    await validateInChat(makeComment({ hostResolved: true }));
+    expect(mockShowInformationMessage).toHaveBeenCalledWith(
+      expect.stringContaining("resolved")
+    );
+    expect(mockOpenTextDocument).not.toHaveBeenCalled();
+  });
+
+  it("proceeds for normal comments without showing guard message", async () => {
+    mockOpenTextDocument.mockResolvedValue({
+      lineCount: 100,
+      getText: () => "code",
+      languageId: "typescript",
+    });
+    mockShowTextDocument.mockResolvedValue({});
+    await validateInChat(makeComment({ hostOutdated: false, hostResolved: false }));
     expect(mockShowInformationMessage).not.toHaveBeenCalledWith(
       expect.stringContaining("outdated")
     );

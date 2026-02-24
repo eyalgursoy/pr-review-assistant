@@ -530,6 +530,17 @@ function registerCommands(context: vscode.ExtensionContext) {
     )
   );
 
+  // Validate in Chat - validate review issue with full file context
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "prReview.validateInChat",
+      async (arg: ReviewComment | { comment?: ReviewComment } | unknown) => {
+        const comment = resolveCommentArg(arg);
+        if (comment) await validateInChat(comment);
+      }
+    )
+  );
+
   // Generate Suggested Fix - AI generates code suggestion
   context.subscriptions.push(
     vscode.commands.registerCommand(
@@ -1149,7 +1160,7 @@ async function editComment(commentId: string) {
   persistCommentStatusForCurrentPR(commentId, "pending");
 
   const currentText =
-    comment.editedText || `**${comment.issue}**\n\n${comment.suggestion || ""}`;
+    comment.editedText || `**${comment.issue ?? ""}**\n\n${comment.suggestion ?? ""}`;
 
   const newText = await vscode.window.showInputBox({
     prompt: "Edit comment (status reset to pending for re-review)",
@@ -1232,7 +1243,7 @@ export async function fixInChat(comment: ReviewComment) {
 **File:** ${safePath}
 **Line:** ${comment.line}
 
-**Issue:** ${comment.issue}
+**Issue:** ${comment.issue ?? ""}
 ${comment.suggestion ? `**Suggestion:** ${comment.suggestion}` : ""}
 
 **Code:**
@@ -1262,6 +1273,89 @@ Please fix the issue.`;
 
   vscode.window.showInformationMessage(
     "Context copied to clipboard. Open chat (Cmd+L) and paste to fix the issue."
+  );
+}
+
+/**
+ * Validate in Chat - validate review issue with full file context
+ */
+export async function validateInChat(comment: ReviewComment) {
+  if (comment.hostOutdated) {
+    vscode.window.showInformationMessage(
+      "Cannot validate in chat — this comment is outdated and the code has changed."
+    );
+    return;
+  }
+  if (comment.hostResolved) {
+    vscode.window.showInformationMessage(
+      "This comment was already resolved on the host."
+    );
+    return;
+  }
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    vscode.window.showWarningMessage("No workspace folder open");
+    return;
+  }
+  const safePath = resolveCommentFilePath(comment);
+  if (!safePath) {
+    vscode.window.showWarningMessage("Invalid or unsafe file path for this comment.");
+    return;
+  }
+
+  const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, safePath);
+  let fullFileContent = "";
+  let fileLanguage = "";
+
+  try {
+    const doc = await vscode.workspace.openTextDocument(fileUri);
+    await vscode.window.showTextDocument(doc);
+    
+    fullFileContent = doc.getText();
+    fileLanguage = doc.languageId;
+  } catch {
+    fullFileContent = `File could not be read: ${safePath}`;
+  }
+
+  const context = `You are a code review validator. Determine whether the following review comment describes a real issue. Use Ask mode; do not make any code changes.
+
+**Task:** Decide if the issue is valid. No code changes are required. At the end, state clearly:
+- If VALID: "The issue is valid and should be fixed." Then suggest the user switch to Agent mode (or use Fix in Chat) to apply the fix.
+- If NOT VALID: "The issue is not valid." Then provide a short reply the user can post back to the reviewer.
+
+**File:** ${safePath}
+**Line:** ${comment.line}
+
+**Issue:** ${comment.issue ?? ""}
+${comment.suggestion ? `**Suggestion:** ${comment.suggestion}` : ""}
+
+**Full file content:**
+\`\`\`${fileLanguage}
+${fullFileContent}
+\`\`\`
+
+Conclude with VALID or NOT VALID and the requested output.`;
+
+  await vscode.env.clipboard.writeText(context);
+
+  // Try Cursor/Copilot chat commands
+  const chatCommands = [
+    "aichat.newchat",
+    "workbench.action.chat.open",
+    "composer.openNewChat",
+  ];
+  for (const cmd of chatCommands) {
+    try {
+      await vscode.commands.executeCommand(cmd, context);
+      vscode.window.showInformationMessage("Context sent to chat");
+      return;
+    } catch {
+      // Try next command
+    }
+  }
+
+  vscode.window.showInformationMessage(
+    "Context copied to clipboard. Open chat (Cmd+L) and paste. Use Ask mode to validate; no code changes."
   );
 }
 
@@ -1420,7 +1514,7 @@ export async function goToComment(comment: ReviewComment) {
  * Show comment details in a modal
  */
 function showCommentDetails(comment: ReviewComment) {
-  const safeIssue = sanitizeMarkdownForDisplay(comment.issue);
+  const safeIssue = sanitizeMarkdownForDisplay(comment.issue ?? "");
   const safeSuggestion = comment.suggestion
     ? sanitizeMarkdownForDisplay(comment.suggestion)
     : "";
