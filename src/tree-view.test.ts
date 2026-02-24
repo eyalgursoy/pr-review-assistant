@@ -42,6 +42,7 @@ vi.mock("vscode", () => ({
 vi.mock("./state", () => ({
   getState: () => mockGetState(),
   getAllComments: () => mockGetAllComments(),
+  getDisplayComments: () => mockGetAllComments(),
   getDisplayCommentsForFile: (...args: unknown[]) =>
     mockGetDisplayCommentsForFile(...args),
   onStateChange: () => ({ dispose: () => {} }),
