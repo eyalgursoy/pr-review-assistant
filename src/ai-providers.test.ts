@@ -1,9 +1,42 @@
 /**
- * Tests for AI provider schema validation
+ * Tests for AI provider schema validation and Cursor CLI model selection
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { AIReviewOutputSchema, FindingSchema } from "./ai-review-schema";
+
+vi.mock("vscode", () => ({
+  window: {
+    showInformationMessage: vi.fn(),
+    showWarningMessage: vi.fn(),
+    showErrorMessage: vi.fn(),
+    createTreeView: vi.fn(),
+    createStatusBarItem: vi.fn(() => ({ show: vi.fn(), dispose: vi.fn() })),
+    withProgress: vi.fn(),
+  },
+  workspace: {
+    workspaceFolders: [{ uri: { fsPath: "/workspace" } }],
+    getConfiguration: vi.fn(() => ({
+      get: vi.fn((key: string) => {
+        if (key === "aiProvider") return "cursor-cli";
+        if (key === "aiProviderCursorModel") return "Auto";
+        return undefined;
+      }),
+    })),
+  },
+  EventEmitter: class EventEmitter {
+    event = vi.fn();
+    fire = vi.fn();
+    dispose = vi.fn();
+  },
+  StatusBarAlignment: { Left: 1, Right: 2 },
+  TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+  Uri: { parse: vi.fn() },
+  env: { openExternal: vi.fn() },
+  commands: { executeCommand: vi.fn() },
+}));
+
+import { getEffectiveCursorModelForCLI } from "./ai-providers";
 
 describe("FindingSchema", () => {
   it("should accept valid finding with all fields", () => {
@@ -104,5 +137,41 @@ describe("AIReviewOutputSchema", () => {
       ],
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("getEffectiveCursorModelForCLI", () => {
+  it('should return "Auto" when selected is "Auto"', () => {
+    const result = getEffectiveCursorModelForCLI("Auto", ["Auto", "gpt-4"]);
+    expect(result).toBe("Auto");
+  });
+
+  it('should return "Auto" when selected is undefined', () => {
+    const result = getEffectiveCursorModelForCLI(undefined, ["Auto"]);
+    expect(result).toBe("Auto");
+  });
+
+  it("should return the selected model when it is available", () => {
+    const result = getEffectiveCursorModelForCLI("gpt-4", ["Auto", "gpt-4"]);
+    expect(result).toBe("gpt-4");
+  });
+
+  it('should return "Auto" when selected model is not available', () => {
+    const result = getEffectiveCursorModelForCLI("gpt-4", ["Auto"]);
+    expect(result).toBe("Auto");
+  });
+
+  it('should return "Auto" when selected is empty string', () => {
+    const result = getEffectiveCursorModelForCLI("", ["Auto", "gpt-4"]);
+    expect(result).toBe("Auto");
+  });
+
+  it("should return selected model when it exactly matches available model", () => {
+    const result = getEffectiveCursorModelForCLI("sonnet-4", [
+      "Auto",
+      "gpt-5",
+      "sonnet-4",
+    ]);
+    expect(result).toBe("sonnet-4");
   });
 });
