@@ -1043,6 +1043,21 @@ export async function getCursorCliModels(): Promise<string[]> {
 }
 
 /**
+ * Compute the effective model to pass to the Cursor CLI agent.
+ * Returns "Auto" if the selected model is "Auto", undefined, or not available.
+ * Otherwise returns the selected model if it's in the available list.
+ */
+export function getEffectiveCursorModelForCLI(
+  selected: string | undefined,
+  available: string[]
+): string {
+  if (selected && selected !== "Auto" && available.includes(selected)) {
+    return selected;
+  }
+  return "Auto";
+}
+
+/**
  * Check if Cursor CLI is installed and ready to use
  * Returns the path to the agent binary, or null if not ready
  */
@@ -1173,17 +1188,13 @@ async function callCursorCLI(prompt: string): Promise<string> {
   validateExecutablePath(agentPath);
 
   const selectedModel = getSelectedCursorModel();
-  let effectiveModel: string | undefined;
-  if (selectedModel && selectedModel !== "Auto") {
-    const available = await getCursorCliModels();
-    if (available.includes(selectedModel)) {
-      effectiveModel = selectedModel;
-      log(`Using Cursor CLI model: ${selectedModel}`);
-    } else {
-      log(`Warning: Model "${selectedModel}" not available, using default`);
-    }
+  const available = await getCursorCliModels();
+  const effectiveModel = getEffectiveCursorModelForCLI(selectedModel, available);
+  
+  if (effectiveModel === "Auto") {
+    log("Using Cursor CLI model: Auto");
   } else {
-    log("Using Cursor CLI default model (Auto)");
+    log(`Using Cursor CLI model: ${effectiveModel}`);
   }
 
   const fullPrompt = `${REVIEW_SYSTEM_PROMPT}
