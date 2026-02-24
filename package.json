@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.18.4",
+  "version": "0.18.5",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -153,6 +153,11 @@
         "icon": "$(comment-discussion)"
       },
       {
+        "command": "prReview.validateInChat",
+        "title": "Validate in Chat",
+        "icon": "$(search)"
+      },
+      {
         "command": "prReview.generateSuggestion",
         "title": "Suggested Fix",
         "icon": "$(lightbulb)"
@@ -218,14 +223,19 @@
           "group": "inline@4"
         },
         {
-          "command": "prReview.generateSuggestion",
+          "command": "prReview.validateInChat",
           "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
           "group": "inline@5"
         },
         {
-          "command": "prReview.viewDiff",
+          "command": "prReview.generateSuggestion",
           "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
           "group": "inline@6"
+        },
+        {
+          "command": "prReview.viewDiff",
+          "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
+          "group": "inline@7"
         }
       ],
       "comments/commentThread/title": [
@@ -250,13 +260,18 @@
           "when": "commentController == prReviewAssistant"
         },
         {
-          "command": "prReview.generateSuggestion",
+          "command": "prReview.validateInChat",
           "group": "inline@5",
           "when": "commentController == prReviewAssistant"
         },
         {
-          "command": "prReview.viewDiff",
+          "command": "prReview.generateSuggestion",
           "group": "inline@6",
+          "when": "commentController == prReviewAssistant"
+        },
+        {
+          "command": "prReview.viewDiff",
+          "group": "inline@7",
           "when": "commentController == prReviewAssistant"
         }
       ],
