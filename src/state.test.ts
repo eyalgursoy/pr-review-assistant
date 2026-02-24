@@ -447,6 +447,118 @@ describe("state", () => {
     });
   });
 
+  describe("helper functions with filtering", () => {
+    const createComment = (id: string, file: string, status: "pending" | "approved" | "rejected" = "pending"): ReviewComment => ({
+      id,
+      file,
+      line: 10,
+      side: "RIGHT",
+      severity: "medium",
+      issue: `Issue ${id}`,
+      status,
+      source: "ai",
+    });
+
+    beforeEach(() => {
+      mockShowResolvedOrOutdated = "hide";
+      resetState();
+      setFiles([
+        { path: "src/a.ts", status: "modified", additions: 5, deletions: 2, comments: [] },
+        { path: "src/b.ts", status: "modified", additions: 3, deletions: 1, comments: [] },
+        { path: "src/c.ts", status: "modified", additions: 2, deletions: 1, comments: [] },
+      ]);
+    });
+
+    it("getPendingComments excludes hostResolved comments", () => {
+      addComments([
+        createComment("1", "src/a.ts", "pending"),
+        { ...createComment("2", "src/a.ts", "pending"), hostResolved: true },
+        createComment("3", "src/b.ts", "pending"),
+      ]);
+
+      const pending = getPendingComments();
+      expect(pending).toHaveLength(2);
+      expect(pending.find((c) => c.id === "2")).toBeUndefined();
+    });
+
+    it("getPendingComments excludes hostOutdated comments", () => {
+      addComments([
+        createComment("1", "src/a.ts", "pending"),
+        { ...createComment("2", "src/a.ts", "pending"), hostOutdated: true },
+        createComment("3", "src/b.ts", "pending"),
+      ]);
+
+      const pending = getPendingComments();
+      expect(pending).toHaveLength(2);
+      expect(pending.find((c) => c.id === "2")).toBeUndefined();
+    });
+
+    it("getApprovedComments excludes hostOutdated comments", () => {
+      addComments([
+        createComment("1", "src/a.ts", "approved"),
+        { ...createComment("2", "src/a.ts", "approved"), hostOutdated: true },
+        createComment("3", "src/b.ts", "approved"),
+      ]);
+
+      const approved = getApprovedComments();
+      expect(approved).toHaveLength(2);
+      expect(approved.find((c) => c.id === "2")).toBeUndefined();
+    });
+
+    it("getRejectedComments excludes hostResolved comments", () => {
+      addComments([
+        createComment("1", "src/a.ts", "rejected"),
+        { ...createComment("2", "src/a.ts", "rejected"), hostResolved: true },
+        createComment("3", "src/b.ts", "rejected"),
+      ]);
+
+      const rejected = getRejectedComments();
+      expect(rejected).toHaveLength(2);
+      expect(rejected.find((c) => c.id === "2")).toBeUndefined();
+    });
+
+    it("allCommentsReviewed returns true when all visible comments reviewed", () => {
+      addComments([
+        createComment("1", "src/a.ts", "approved"),
+        createComment("2", "src/a.ts", "rejected"),
+        { ...createComment("3", "src/b.ts", "pending"), hostResolved: true },
+      ]);
+
+      expect(allCommentsReviewed()).toBe(true);
+    });
+
+    it("allCommentsReviewed returns false when visible comments pending", () => {
+      addComments([
+        createComment("1", "src/a.ts", "pending"),
+        { ...createComment("2", "src/a.ts", "pending"), hostResolved: true },
+      ]);
+
+      expect(allCommentsReviewed()).toBe(false);
+    });
+
+    it("allCommentsRejected returns true when all visible comments rejected", () => {
+      addComments([
+        createComment("1", "src/a.ts", "rejected"),
+        createComment("2", "src/b.ts", "rejected"),
+        { ...createComment("3", "src/c.ts", "pending"), hostResolved: true },
+      ]);
+
+      expect(allCommentsRejected()).toBe(true);
+    });
+
+    it("filtering respects showResolvedOrOutdated=show setting", () => {
+      mockShowResolvedOrOutdated = "show";
+      addComments([
+        createComment("1", "src/a.ts", "pending"),
+        { ...createComment("2", "src/a.ts", "pending"), hostResolved: true },
+      ]);
+
+      const pending = getPendingComments();
+      expect(pending).toHaveLength(2);
+      expect(pending.find((c) => c.id === "2")).toBeDefined();
+    });
+  });
+
   describe("deduplicateComments", () => {
     const make = (id: string, file: string, line: number): ReviewComment => ({
       id,

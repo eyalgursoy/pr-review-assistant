@@ -256,28 +256,28 @@ export type PersistedStatuses = Record<string, CommentStatus>;
  * Get approved comments
  */
 export function getApprovedComments(): ReviewComment[] {
-  return getAllComments().filter((c) => c.status === "approved");
+  return getDisplayComments().filter((c) => c.status === "approved");
 }
 
 /**
  * Get pending comments (not yet approved or rejected)
  */
 export function getPendingComments(): ReviewComment[] {
-  return getAllComments().filter((c) => c.status === "pending");
+  return getDisplayComments().filter((c) => c.status === "pending");
 }
 
 /**
  * Get rejected comments
  */
 export function getRejectedComments(): ReviewComment[] {
-  return getAllComments().filter((c) => c.status === "rejected");
+  return getDisplayComments().filter((c) => c.status === "rejected");
 }
 
 /**
  * Check if all comments have been reviewed (no pending)
  */
 export function allCommentsReviewed(): boolean {
-  const all = getAllComments();
+  const all = getDisplayComments();
   return all.length > 0 && all.every((c) => c.status !== "pending");
 }
 
@@ -285,7 +285,7 @@ export function allCommentsReviewed(): boolean {
  * Check if all comments were rejected (user disagrees with AI)
  */
 export function allCommentsRejected(): boolean {
-  const all = getAllComments();
+  const all = getDisplayComments();
   return all.length > 0 && all.every((c) => c.status === "rejected");
 }
 

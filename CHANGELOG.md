@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Pending/approved/rejected counters and submit button now correctly exclude filtered comments (resolved/outdated). When `showResolvedOrOutdated` is set to "hide", only visible comments are counted, fixing the issue where filtered comments were incorrectly included in the pending count.
+
 ## [0.18.3] - 2026-02-24
 
 ### Fixed

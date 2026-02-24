@@ -7,8 +7,8 @@ import * as path from "path";
 import {
   getState,
   onStateChange,
-  getAllComments,
   allCommentsRejected,
+  getDisplayComments,
   getDisplayCommentsForFile,
 } from "./state";
 import {
@@ -278,7 +278,7 @@ export class PRReviewTreeProvider
         return undefined;
       }
       // Review Summary status (pending, approved, rejected)
-      const count = getAllComments().length;
+      const count = getDisplayComments().length;
       return {
         type: "section",
         label: "Review Summary",
@@ -286,7 +286,7 @@ export class PRReviewTreeProvider
       };
     }
     if (element.type === "action") {
-      const count = getAllComments().length;
+      const count = getDisplayComments().length;
       return {
         type: "section",
         label: "Review Summary",
@@ -422,7 +422,7 @@ export class PRReviewTreeProvider
     }
 
     // No comments found message (review complete, files changed, no issues)
-    const allComments = getAllComments();
+    const allComments = getDisplayComments();
     if (
       !state.isLoading &&
       state.files.length > 0 &&
@@ -475,7 +475,7 @@ export class PRReviewTreeProvider
   }
 
   private getSummaryItems(state: ReviewState): TreeItemData[] {
-    const allComments = getAllComments();
+    const allComments = getDisplayComments();
     const approved = allComments.filter((c) => c.status === "approved").length;
     const rejected = allComments.filter((c) => c.status === "rejected").length;
     const pending = allComments.filter((c) => c.status === "pending").length;
