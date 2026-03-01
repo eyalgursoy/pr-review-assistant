@@ -1,13 +1,19 @@
 /**
- * Tests for GitHub GraphQL resolution helpers (applyGraphQLResolution).
+ * Tests for GitHub GraphQL resolution helpers (applyGraphQLResolution, setReviewThreadResolved).
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   applyGraphQLResolution,
+  setReviewThreadResolved,
   type CommentThreadState,
 } from "./github-graphql";
 import type { ReviewComment } from "../types";
+import { runCommand } from "../shell-utils";
+
+vi.mock("../shell-utils", () => ({
+  runCommand: vi.fn(),
+}));
 
 function makeComment(
   id: string,
@@ -115,5 +121,41 @@ describe("applyGraphQLResolution", () => {
 
     expect(result[0].hostResolved).toBe(true);
     expect(result[0].hostThreadId).toBeUndefined();
+  });
+});
+
+describe("setReviewThreadResolved", () => {
+  beforeEach(() => {
+    vi.mocked(runCommand).mockResolvedValue({ stdout: "{}", stderr: "" });
+  });
+
+  it("calls resolveReviewThread when resolved is true", async () => {
+    await setReviewThreadResolved("o", "r", 1, "PRRT_abc", true);
+    expect(runCommand).toHaveBeenCalledWith(
+      "gh",
+      expect.arrayContaining([
+        "api",
+        "graphql",
+        "-f",
+        expect.stringContaining("resolveReviewThread"),
+        "-F",
+        "threadId=PRRT_abc",
+      ]),
+      expect.any(Object)
+    );
+  });
+
+  it("calls unresolveReviewThread when resolved is false", async () => {
+    await setReviewThreadResolved("o", "r", 1, "PRRT_xyz", false);
+    expect(runCommand).toHaveBeenCalledWith(
+      "gh",
+      expect.arrayContaining([
+        "-f",
+        expect.stringContaining("unresolveReviewThread"),
+        "-F",
+        "threadId=PRRT_xyz",
+      ]),
+      expect.any(Object)
+    );
   });
 });

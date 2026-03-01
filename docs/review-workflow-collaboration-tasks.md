@@ -59,17 +59,17 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 **Branch:** `task/2-provider-reply-resolve-apis`
 
-- [ ] Branch created
-- [ ] `replyToComment?` and `setThreadResolved?` added to `PRProvider` in `src/providers/types.ts`
-- [ ] GitHub: `replyToComment` (REST) and `setThreadResolved` (GraphQL mutations) implemented
-- [ ] GitLab: `replyToComment` (discussion notes) and `setThreadResolved` (PUT discussion) implemented
-- [ ] Bitbucket: `replyToComment` (parent id) implemented; `setThreadResolved` no-op or omitted
-- [ ] Tests added/updated for provider methods
-- [ ] `npm run build` passes
-- [ ] `npm test` passes
-- [ ] `npm run package` creates .vsix
-- [ ] Version bumped, README/CHANGELOG updated
-- [ ] Summary updated, changes committed
+- [x] Branch created
+- [x] `replyToComment?` and `setThreadResolved?` added to `PRProvider` in `src/providers/types.ts`
+- [x] GitHub: `replyToComment` (REST) and `setThreadResolved` (GraphQL mutations) implemented
+- [x] GitLab: `replyToComment` (discussion notes) and `setThreadResolved` (PUT discussion) implemented
+- [x] Bitbucket: `replyToComment` (parent id) implemented; `setThreadResolved` no-op or omitted
+- [x] Tests added/updated for provider methods
+- [x] `npm run build` passes
+- [x] `npm test` passes
+- [x] `npm run package` creates .vsix
+- [x] Version bumped, README/CHANGELOG updated
+- [x] Summary updated, changes committed
 
 ---
 

@@ -123,3 +123,30 @@ export function applyGraphQLResolution(
     };
   });
 }
+
+/**
+ * Resolve or unresolve a PR review thread via GraphQL mutation.
+ * threadId is the thread node id (e.g. PRRT_xxx).
+ */
+export async function setReviewThreadResolved(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  threadId: string,
+  resolved: boolean,
+  cwd?: string
+): Promise<void> {
+  const mutation = resolved
+    ? "mutation($threadId: ID!) { resolveReviewThread(input: { threadId: $threadId }) { thread { isResolved } } }"
+    : "mutation($threadId: ID!) { unresolveReviewThread(input: { threadId: $threadId }) { thread { isResolved } } }";
+  const mutationOneLine = mutation.replace(/\s+/g, " ").trim();
+  const args = [
+    "api",
+    "graphql",
+    "-f",
+    `query=${mutationOneLine}`,
+    "-F",
+    `threadId=${threadId}`,
+  ];
+  await runCommand("gh", args, { cwd });
+}
