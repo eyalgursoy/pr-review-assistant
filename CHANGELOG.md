@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Validate in Chat** action for PR comments: opens chat with validation-focused context (role hint, full file content, no-code-changes instruction). The LLM validates whether the review issue is actually valid and concludes either "valid → fix in Agent / Fix in Chat" or "not valid" with a suggested reply. Use Ask mode for validation-only workflow.
+- Development plan tracking skill and `/tracked-plan` slash command: guides AI through creating and executing multi-task development plans using three coordinated files (plan, tasks, summary) for consistent workflow tracking across sessions.
 
 ### Fixed
 
