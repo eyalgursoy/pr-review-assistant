@@ -201,6 +201,25 @@ function registerCommentCommands(context: vscode.ExtensionContext): void {
     )
   );
 
+  // Reply to host comment (posts reply on GitHub/GitLab/Bitbucket)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "prReview.comment.reply",
+      (arg: vscode.CommentThread | PRReviewComment) => {
+        const prComment =
+          "comments" in arg
+            ? (arg.comments[0] as PRReviewComment)
+            : (arg as PRReviewComment);
+        if (prComment?.reviewComment) {
+          vscode.commands.executeCommand(
+            "prReview.replyToComment",
+            prComment.reviewComment
+          );
+        }
+      }
+    )
+  );
+
   // Approve all pending
   context.subscriptions.push(
     vscode.commands.registerCommand("prReview.comment.approveAll", () => {

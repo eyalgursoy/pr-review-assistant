@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.18.8",
+  "version": "0.18.9",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -89,6 +89,11 @@
         "icon": "$(edit)"
       },
       {
+        "command": "prReview.replyToComment",
+        "title": "Reply",
+        "icon": "$(reply)"
+      },
+      {
         "command": "prReview.clearReview",
         "title": "Clear Review",
         "icon": "$(trash)"
@@ -146,6 +151,11 @@
         "command": "prReview.comment.delete",
         "title": "Dismiss",
         "icon": "$(trash)"
+      },
+      {
+        "command": "prReview.comment.reply",
+        "title": "Reply",
+        "icon": "$(reply)"
       },
       {
         "command": "prReview.fixInChat",
@@ -218,24 +228,29 @@
           "group": "inline@3"
         },
         {
-          "command": "prReview.fixInChat",
+          "command": "prReview.replyToComment",
           "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
           "group": "inline@4"
         },
         {
-          "command": "prReview.validateInChat",
+          "command": "prReview.fixInChat",
           "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
           "group": "inline@5"
         },
         {
-          "command": "prReview.generateSuggestion",
+          "command": "prReview.validateInChat",
           "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
           "group": "inline@6"
         },
         {
-          "command": "prReview.viewDiff",
+          "command": "prReview.generateSuggestion",
           "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
           "group": "inline@7"
+        },
+        {
+          "command": "prReview.viewDiff",
+          "when": "view == prReviewAssistant && viewItem =~ /^comment-/",
+          "group": "inline@8"
         }
       ],
       "comments/commentThread/title": [
@@ -255,23 +270,28 @@
           "when": "commentController == prReviewAssistant"
         },
         {
-          "command": "prReview.fixInChat",
+          "command": "prReview.comment.reply",
           "group": "inline@4",
           "when": "commentController == prReviewAssistant"
         },
         {
-          "command": "prReview.validateInChat",
+          "command": "prReview.fixInChat",
           "group": "inline@5",
           "when": "commentController == prReviewAssistant"
         },
         {
-          "command": "prReview.generateSuggestion",
+          "command": "prReview.validateInChat",
           "group": "inline@6",
           "when": "commentController == prReviewAssistant"
         },
         {
-          "command": "prReview.viewDiff",
+          "command": "prReview.generateSuggestion",
           "group": "inline@7",
+          "when": "commentController == prReviewAssistant"
+        },
+        {
+          "command": "prReview.viewDiff",
+          "group": "inline@8",
           "when": "commentController == prReviewAssistant"
         }
       ],

@@ -47,6 +47,17 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
           tooltip: `Click to view comment details\n\n${comment.issue}`,
         })
       );
+
+      if (comment.source === "host") {
+        codeLenses.push(
+          new vscode.CodeLens(range, {
+            title: "Reply",
+            command: "prReview.replyToComment",
+            arguments: [comment],
+            tooltip: "Reply to this comment on the host",
+          })
+        );
+      }
     }
 
     return codeLenses;
