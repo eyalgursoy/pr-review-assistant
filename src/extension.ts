@@ -36,6 +36,7 @@ import {
   getAllComments,
   deduplicateComments,
   clearAIComments,
+  replaceHostComments,
   buildStatusStorageKey,
   type PersistedStatuses,
 } from "./state";
@@ -477,6 +478,70 @@ function registerCommands(context: vscode.ExtensionContext) {
         const commentId = typeof arg === "string" ? arg : arg?.comment?.id;
         if (commentId) {
           await editComment(commentId);
+        }
+      }
+    )
+  );
+
+  // Reply to Comment (host comments only; prompts for body and posts to host)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "prReview.replyToComment",
+      async (arg: ReviewComment | { comment?: ReviewComment } | unknown) => {
+        const comment = resolveCommentArg(arg);
+        if (!comment) return;
+        const state = getState();
+        if (!state.pr || state.isLocalMode) {
+          vscode.window.showWarningMessage("Reply is only available when a PR/MR is loaded.");
+          return;
+        }
+        const provider = getProvider(state.pr.host);
+        if (!provider.replyToComment) {
+          vscode.window.showWarningMessage("Reply is not supported for this host.");
+          return;
+        }
+        if (comment.source !== "host") {
+          vscode.window.showInformationMessage("Reply is only for comments from the host. Use the comment thread to add a note.");
+          return;
+        }
+        const hasId = comment.hostCommentId != null || comment.hostThreadId != null;
+        if (!hasId) {
+          vscode.window.showInformationMessage(
+            "Reply is not available for this comment. Reload the PR to refresh comment data."
+          );
+          return;
+        }
+        const body = await vscode.window.showInputBox({
+          title: "Reply to comment",
+          prompt: "Enter your reply (will be posted to the PR/MR thread).",
+          placeHolder: "Type your reply...",
+        });
+        if (body == null || body.trim() === "") return;
+        try {
+          const result = await provider.replyToComment(state.pr, comment, body.trim());
+          if (result.success) {
+            if (provider.fetchPRComments) {
+              const hostComments = await provider.fetchPRComments(
+                state.pr.owner,
+                state.pr.repo,
+                state.pr.number
+              );
+              if (hostComments.length > 0) {
+                replaceHostComments(hostComments);
+                const key = buildStatusStorageKey(state.pr.owner, state.pr.repo, state.pr.number);
+                const savedStatuses = extensionContext?.workspaceState.get<PersistedStatuses>(key, {});
+                for (const [commentId, status] of Object.entries(savedStatuses ?? {})) {
+                  updateCommentStatus(commentId, status);
+                }
+              }
+            }
+            vscode.window.showInformationMessage(result.message ?? "Reply posted.");
+          } else {
+            vscode.window.showErrorMessage(result.message ?? "Failed to post reply.");
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Failed to post reply: ${msg}`);
         }
       }
     )

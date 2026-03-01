@@ -90,6 +90,30 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 ---
 
+### Task 3: Reply UI
+
+**Branch:** `task/3-reply-ui`
+**Date:** 2026-03-01
+
+**Changes Made:**
+
+- **`src/state.ts`**: Added `replaceHostComments(hostComments)` to replace all host comments with a fresh list while preserving AI comments; used after a successful reply to refresh the thread.
+- **`src/extension.ts`**: Registered `prReview.replyToComment` command. Resolves comment via `resolveCommentArg`; checks state.pr, !isLocalMode, provider.replyToComment, comment.source === 'host', and presence of hostCommentId/hostThreadId. Prompts with `showInputBox` for reply body; calls `provider.replyToComment(pr, comment, body)`; on success re-fetches host comments via `provider.fetchPRComments`, calls `replaceHostComments`, restores persisted statuses, shows info message; on failure shows error.
+- **`src/comments.ts`**: Registered `prReview.comment.reply` that receives thread or PRReviewComment, extracts `reviewComment`, and runs `prReview.replyToComment` with it.
+- **`package.json`**: Added commands `prReview.replyToComment` and `prReview.comment.reply`; added Reply to `comments/commentThread/title` (inline@4) and `view/item/context` (inline@4 for tree).
+- **`src/codelens.ts`**: For each host comment (`comment.source === 'host'`), added a second CodeLens "Reply" with command `prReview.replyToComment` and the comment as argument.
+- **Tests**: `src/state.test.ts` — added `replaceHostComments` tests (replaces host and preserves AI; prunes empty files).
+
+**Files Modified:** `src/state.ts`, `src/extension.ts`, `src/comments.ts`, `src/codelens.ts`, `src/state.test.ts`, `package.json`, `README.md`, `CHANGELOG.md`, `docs/review-workflow-collaboration-tasks.md`, `docs/review-workflow-collaboration-summary.md`
+
+**Test Results:** 327/327 pass
+
+**Key Decisions:** Reply is shown for all comments in the thread/tree menu; the command itself validates host/source and shows a message when reply isn't available. After success we re-fetch and replace host comments so the new reply appears without a full PR reload.
+
+**Issues / Notes:** None.
+
+---
+
 ## Test Commands
 
 ```bash
