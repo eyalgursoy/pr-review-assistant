@@ -176,3 +176,39 @@ describe("ReviewComment combined host fields", () => {
     expect(comment.parentId).toBe("host-gh-root");
   });
 });
+
+describe("ReviewComment hostCommentId and hostThreadId fields", () => {
+  it("hostCommentId is undefined by default", () => {
+    expect(baseAiComment.hostCommentId).toBeUndefined();
+    expect(baseHostComment.hostCommentId).toBeUndefined();
+  });
+
+  it("accepts hostCommentId as number (e.g. GitHub REST id)", () => {
+    const comment: ReviewComment = {
+      ...baseHostComment,
+      hostCommentId: 12345,
+    };
+    expect(comment.hostCommentId).toBe(12345);
+  });
+
+  it("accepts hostCommentId as string (e.g. GitLab note id)", () => {
+    const comment: ReviewComment = {
+      ...baseHostComment,
+      hostCommentId: "abc-def",
+    };
+    expect(comment.hostCommentId).toBe("abc-def");
+  });
+
+  it("hostThreadId is undefined by default", () => {
+    expect(baseAiComment.hostThreadId).toBeUndefined();
+    expect(baseHostComment.hostThreadId).toBeUndefined();
+  });
+
+  it("accepts hostThreadId (e.g. GitHub PRRT_xxx, GitLab discussion id)", () => {
+    const comment: ReviewComment = {
+      ...baseHostComment,
+      hostThreadId: "PRRT_kwDOxyz",
+    };
+    expect(comment.hostThreadId).toBe("PRRT_kwDOxyz");
+  });
+});

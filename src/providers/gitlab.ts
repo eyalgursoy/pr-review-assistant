@@ -75,6 +75,7 @@ export type GlNote = {
 };
 
 export type GlDiscussion = {
+  id?: string;
   notes?: GlNote[];
   resolved?: boolean;
 };
@@ -127,6 +128,8 @@ export function mapGitLabDiscussions(discussions: GlDiscussion[]): ReviewComment
         hostOutdated: !hasPosition,
         hostResolved: discussion.resolved ?? false,
         parentId: i > 0 ? rootId : undefined,
+        hostThreadId: discussion.id,
+        hostCommentId: note.id,
       });
     }
   }
