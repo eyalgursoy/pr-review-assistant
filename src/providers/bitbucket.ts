@@ -121,6 +121,7 @@ export function mapBitbucketComments(items: BbComment[]): ReviewComment[] {
       hostOutdated: item.deleted ?? false,
       hostResolved: false,
       parentId: item.parent?.id ? `host-bb-${item.parent.id}` : undefined,
+      hostCommentId: item.id,
     });
   }
 

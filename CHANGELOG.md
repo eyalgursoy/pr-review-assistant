@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Review Workflow & Collaboration (Task 1)**: Extended `ReviewComment` with `hostCommentId` and `hostThreadId` so reply and resolve/unresolve actions can target the correct host APIs. GitHub REST mapping sets `hostCommentId`; GitHub GraphQL now returns thread `id` and sets `hostThreadId`. GitLab and Bitbucket mappings set `hostThreadId`/`hostCommentId` where supported. No user-visible changes yet; enables Task 2 (provider APIs) and Task 3/4 (Reply and Resolve/Unresolve UI).
 - **Validate in Chat** action for PR comments: opens chat with validation-focused context (role hint, full file content, no-code-changes instruction). The LLM validates whether the review issue is actually valid and concludes either "valid → fix in Agent / Fix in Chat" or "not valid" with a suggested reply. Use Ask mode for validation-only workflow.
 - Development plan tracking skill and `/tracked-plan` slash command: guides AI through creating and executing multi-task development plans using three coordinated files (plan, tasks, summary) for consistent workflow tracking across sessions.
 

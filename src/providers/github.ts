@@ -161,6 +161,7 @@ function mapSingleGhComment(
     hostOutdated,
     hostResolved: false,
     parentId,
+    hostCommentId: item.id,
   };
 }
 

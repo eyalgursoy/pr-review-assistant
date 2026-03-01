@@ -58,6 +58,10 @@ export interface ReviewComment {
   hostResolved?: boolean;
   /** ID of the parent comment for replies. Undefined means this is a root comment. */
   parentId?: string;
+  /** Host's native comment ID (e.g. GitHub REST id for reply API). Optional. */
+  hostCommentId?: number | string;
+  /** Host's thread/discussion ID (e.g. GitHub PRRT_xxx, GitLab discussion id). Optional. */
+  hostThreadId?: string;
 }
 
 /** Supported git hosts for PR/MR review */

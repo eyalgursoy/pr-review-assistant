@@ -7,7 +7,12 @@ import type { ReviewComment } from "../types";
 import { runCommand } from "../shell-utils";
 
 /** Resolution/outdated state for a comment (from its thread). Key = comment node_id (e.g. PRRC_xxx). */
-export type CommentThreadState = { isResolved: boolean; isOutdated: boolean };
+export type CommentThreadState = {
+  isResolved: boolean;
+  isOutdated: boolean;
+  /** Thread node id (e.g. PRRT_xxx) for resolve/unresolve API. */
+  threadId?: string;
+};
 
 const REVIEW_THREADS_QUERY = `
   query($owner: String!, $name: String!, $number: Int!, $after: String) {
@@ -16,6 +21,7 @@ const REVIEW_THREADS_QUERY = `
         reviewThreads(first: 100, after: $after) {
           pageInfo { hasNextPage endCursor }
           nodes {
+            id
             isResolved
             isOutdated
             comments(first: 50) {
@@ -74,6 +80,7 @@ export async function fetchReviewThreadsResolution(
       const state: CommentThreadState = {
         isResolved: !!thread.isResolved,
         isOutdated: !!thread.isOutdated,
+        threadId: thread.id ?? undefined,
       };
       const comments = thread.comments?.nodes ?? [];
       for (const c of comments) {
@@ -112,6 +119,7 @@ export function applyGraphQLResolution(
       ...c,
       hostResolved: state.isResolved,
       hostOutdated: state.isOutdated,
+      ...(state.threadId != null ? { hostThreadId: state.threadId } : {}),
     };
   });
 }

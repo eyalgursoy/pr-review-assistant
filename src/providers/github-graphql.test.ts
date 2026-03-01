@@ -91,4 +91,29 @@ describe("applyGraphQLResolution", () => {
     expect(result[0].hostResolved).toBe(true);
     expect(result[0].hostOutdated).toBe(true);
   });
+
+  it("sets hostThreadId when state includes threadId", () => {
+    const comments = [makeComment("host-gh-PRRC_1")];
+    const map = new Map<string, CommentThreadState>();
+    map.set("PRRC_1", {
+      isResolved: false,
+      isOutdated: false,
+      threadId: "PRRT_kwDOxyz",
+    });
+
+    const result = applyGraphQLResolution(comments, map);
+
+    expect(result[0].hostThreadId).toBe("PRRT_kwDOxyz");
+  });
+
+  it("does not set hostThreadId when state has no threadId", () => {
+    const comments = [makeComment("host-gh-PRRC_1")];
+    const map = new Map<string, CommentThreadState>();
+    map.set("PRRC_1", { isResolved: true, isOutdated: false });
+
+    const result = applyGraphQLResolution(comments, map);
+
+    expect(result[0].hostResolved).toBe(true);
+    expect(result[0].hostThreadId).toBeUndefined();
+  });
 });
