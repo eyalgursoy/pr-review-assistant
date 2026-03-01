@@ -59,4 +59,18 @@ export interface PRProvider {
 
   /** Approve PR/MR (optional; not all hosts support it the same way). */
   approvePR?(pr: PRInfo, body: string): Promise<SubmitResult>;
+
+  /** Reply to an existing host comment/thread (optional). */
+  replyToComment?(
+    pr: PRInfo,
+    comment: ReviewComment,
+    body: string
+  ): Promise<SubmitResult>;
+
+  /** Mark a thread as resolved or unresolved on the host (optional). */
+  setThreadResolved?(
+    pr: PRInfo,
+    threadId: string,
+    resolved: boolean
+  ): Promise<SubmitResult>;
 }

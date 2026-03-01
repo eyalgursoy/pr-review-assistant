@@ -413,4 +413,61 @@ export const bitbucketProvider: PRProvider = {
       message: `Failed to approve: ${res.status} ${text.slice(0, 150)}`,
     };
   },
+
+  async replyToComment(
+    pr: PRInfo,
+    comment: ReviewComment,
+    body: string
+  ): Promise<SubmitResult> {
+    const parentId = comment.hostCommentId;
+    if (parentId == null) {
+      return {
+        success: false,
+        message:
+          "Reply requires the host comment id. Reload the PR to get it.",
+      };
+    }
+
+    const token = await getToken();
+    if (!token) {
+      return { success: false, message: "Bitbucket token not set." };
+    }
+
+    const numericId = typeof parentId === "number" ? parentId : parseInt(String(parentId), 10);
+    if (Number.isNaN(numericId)) {
+      return { success: false, message: "Invalid comment id for reply." };
+    }
+
+    const res = await bitbucketFetch(
+      `/repositories/${pr.owner}/${pr.repo}/pullrequests/${pr.number}/comments`,
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          content: { raw: body },
+          parent: { id: numericId },
+        }),
+      }
+    );
+
+    if (res.ok) {
+      return { success: true, message: "Reply posted.", url: pr.url };
+    }
+    const text = await res.text();
+    return {
+      success: false,
+      message: `Failed to post reply: ${res.status} ${text.slice(0, 150)}`,
+    };
+  },
+
+  async setThreadResolved(
+    _pr: PRInfo,
+    _threadId: string,
+    resolved: boolean
+  ): Promise<SubmitResult> {
+    return {
+      success: true,
+      message: `Thread ${resolved ? "resolve" : "unresolve"} is not supported for Bitbucket.`,
+    };
+  },
 };

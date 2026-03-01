@@ -66,6 +66,30 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 ---
 
+### Task 2: Provider APIs for Reply and Resolve
+
+**Branch:** `task/2-provider-reply-resolve-apis`
+**Date:** 2026-03-01
+
+**Changes Made:**
+
+- **`src/providers/types.ts`**: Added optional `replyToComment?(pr, comment, body)` and `setThreadResolved?(pr, threadId, resolved)` to `PRProvider`.
+- **GitHub**: `replyToComment` — POST `repos/.../pulls/.../comments` with `body` and `in_reply_to` (numeric `hostCommentId`), using temp file for payload. `setThreadResolved` — calls new `setReviewThreadResolved()` in github-graphql with GraphQL mutations `resolveReviewThread` / `unresolveReviewThread`.
+- **`src/providers/github-graphql.ts`**: Added `setReviewThreadResolved(owner, repo, prNumber, threadId, resolved, cwd)` that runs `gh api graphql` with the appropriate mutation.
+- **GitLab**: `replyToComment` — POST `.../discussions/:id/notes` with `body` using `comment.hostThreadId`. `setThreadResolved` — PUT `.../discussions/:id` with `resolved`.
+- **Bitbucket**: `replyToComment` — POST comments with `parent: { id: hostCommentId }`. `setThreadResolved` — no-op returning success with message "not supported for Bitbucket".
+- **Tests**: `src/providers/reply-resolve.test.ts` — validation tests (GitHub/GitLab/Bitbucket reply when required id missing; Bitbucket setThreadResolved no-op). `src/providers/github-graphql.test.ts` — mocked `runCommand`, tests that `setReviewThreadResolved` calls resolve/unresolve mutation with correct threadId.
+
+**Files Modified:** `src/providers/types.ts`, `src/providers/github.ts`, `src/providers/github-graphql.ts`, `src/providers/gitlab.ts`, `src/providers/bitbucket.ts`, `src/providers/github-graphql.test.ts`, `src/providers/reply-resolve.test.ts`, `package.json`, `README.md`, `CHANGELOG.md`, `docs/review-workflow-collaboration-tasks.md`, `docs/review-workflow-collaboration-summary.md`
+
+**Test Results:** 325/325 pass
+
+**Key Decisions:** GitHub reply uses temp file for request body to support newlines/special chars. Bitbucket `setThreadResolved` returns success with an explanatory message so callers can treat it as non-fatal.
+
+**Issues / Notes:** None.
+
+---
+
 ## Test Commands
 
 ```bash
