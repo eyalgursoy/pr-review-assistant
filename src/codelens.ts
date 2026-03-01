@@ -57,6 +57,27 @@ export class ReviewCodeLensProvider implements vscode.CodeLensProvider {
             tooltip: "Reply to this comment on the host",
           })
         );
+        if (comment.hostThreadId) {
+          if (comment.hostResolved) {
+            codeLenses.push(
+              new vscode.CodeLens(range, {
+                title: "Unresolve",
+                command: "prReview.unresolveThread",
+                arguments: [comment],
+                tooltip: "Mark thread unresolved on the host",
+              })
+            );
+          } else {
+            codeLenses.push(
+              new vscode.CodeLens(range, {
+                title: "Resolve",
+                command: "prReview.resolveThread",
+                arguments: [comment],
+                tooltip: "Mark thread resolved on the host",
+              })
+            );
+          }
+        }
       }
     }
 
