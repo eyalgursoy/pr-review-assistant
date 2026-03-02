@@ -143,6 +143,11 @@ describe("mapGitHubComments", () => {
     expect(comment.hostResolved).toBe(false);
   });
 
+  it("sets hostCommentId from REST comment id", () => {
+    const [comment] = mapGitHubComments([base]);
+    expect(comment.hostCommentId).toBe(1);
+  });
+
   it("sets hostOutdated true when position is null", () => {
     const [comment] = mapGitHubComments([{ ...base, position: null }]);
     expect(comment.hostOutdated).toBe(true);

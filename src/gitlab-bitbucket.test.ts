@@ -66,6 +66,38 @@ describe("mapGitLabDiscussions", () => {
     expect(comment.hostResolved).toBe(false);
   });
 
+  it("sets hostThreadId and hostCommentId when discussion has id", () => {
+    const disc: GlDiscussion = {
+      id: "abc123-discussion",
+      notes: [baseNote],
+      resolved: false,
+    };
+    const [comment] = mapGitLabDiscussions([disc]);
+    expect(comment.hostThreadId).toBe("abc123-discussion");
+    expect(comment.hostCommentId).toBe(100);
+  });
+
+  it("sets hostThreadId and hostCommentId for reply notes", () => {
+    const rootNote = { ...baseNote, id: 100 };
+    const replyNote: GlNote = {
+      ...baseNote,
+      id: 101,
+      body: "Reply text",
+      position: rootNote.position,
+    };
+    const disc: GlDiscussion = {
+      id: "disc-xyz",
+      notes: [rootNote, replyNote],
+      resolved: false,
+    };
+    const comments = mapGitLabDiscussions([disc]);
+    expect(comments).toHaveLength(2);
+    expect(comments[0].hostThreadId).toBe("disc-xyz");
+    expect(comments[0].hostCommentId).toBe(100);
+    expect(comments[1].hostThreadId).toBe("disc-xyz");
+    expect(comments[1].hostCommentId).toBe(101);
+  });
+
   it("sets hostOutdated true when position is null", () => {
     const outdatedNote: GlNote = {
       ...baseNote,
@@ -160,6 +192,11 @@ describe("mapBitbucketComments", () => {
   it("sets hostResolved to false (Bitbucket limitation)", () => {
     const [comment] = mapBitbucketComments([base]);
     expect(comment.hostResolved).toBe(false);
+  });
+
+  it("sets hostCommentId from comment id", () => {
+    const [comment] = mapBitbucketComments([base]);
+    expect(comment.hostCommentId).toBe(1);
   });
 
   it("sets hostOutdated from deleted field", () => {
