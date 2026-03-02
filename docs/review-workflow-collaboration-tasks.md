@@ -77,17 +77,17 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 **Branch:** `task/3-reply-ui`
 
-- [ ] Branch created
-- [ ] Command `prReview.replyToComment` registered; accepts comment or `{ comment?: ReviewComment }`
-- [ ] Reply only for `source === 'host'` when provider has `replyToComment`; show message when unavailable
-- [ ] Input prompt for reply body; call provider; on success refresh host comments and show message
-- [ ] Reply action added to comment thread UI (`comments.ts`)
-- [ ] Reply exposed in tree view and/or CodeLens for host comments
-- [ ] `npm run build` passes
-- [ ] `npm test` passes
-- [ ] `npm run package` creates .vsix
-- [ ] Version bumped, README/CHANGELOG updated
-- [ ] Summary updated, changes committed
+- [x] Branch created
+- [x] Command `prReview.replyToComment` registered; accepts comment or `{ comment?: ReviewComment }`
+- [x] Reply only for `source === 'host'` when provider has `replyToComment`; show message when unavailable
+- [x] Input prompt for reply body; call provider; on success refresh host comments and show message
+- [x] Reply action added to comment thread UI (`comments.ts`)
+- [x] Reply exposed in tree view and/or CodeLens for host comments
+- [x] `npm run build` passes
+- [x] `npm test` passes
+- [x] `npm run package` creates .vsix
+- [x] Version bumped, README/CHANGELOG updated
+- [x] Summary updated, changes committed
 
 ---
 
@@ -95,17 +95,17 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 **Branch:** `task/4-resolve-unresolve-ui`
 
-- [ ] Branch created
-- [ ] Commands `prReview.resolveThread` and `prReview.unresolveThread` registered
-- [ ] Only for host comments with `hostThreadId` and provider `setThreadResolved`; Bitbucket excluded
-- [ ] On success: re-fetch host comments or update `hostResolved` for same `hostThreadId`
-- [ ] Resolve/Unresolve actions added to comment thread UI
-- [ ] Resolve/Unresolve exposed in tree view and/or CodeLens for host comments
-- [ ] `npm run build` passes
-- [ ] `npm test` passes
-- [ ] `npm run package` creates .vsix
-- [ ] Version bumped, README/CHANGELOG updated
-- [ ] Summary updated, changes committed
+- [x] Branch created
+- [x] Commands `prReview.resolveThread` and `prReview.unresolveThread` registered
+- [x] Only for host comments with `hostThreadId` and provider `setThreadResolved`; Bitbucket excluded
+- [x] On success: re-fetch host comments or update `hostResolved` for same `hostThreadId`
+- [x] Resolve/Unresolve actions added to comment thread UI
+- [x] Resolve/Unresolve exposed in tree view and/or CodeLens for host comments
+- [x] `npm run build` passes
+- [x] `npm test` passes
+- [x] `npm run package` creates .vsix
+- [x] Version bumped, README/CHANGELOG updated
+- [x] Summary updated, changes committed
 
 ---
 
