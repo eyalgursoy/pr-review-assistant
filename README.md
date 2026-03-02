@@ -9,7 +9,7 @@ AI-powered PR code review extension for VS Code / Cursor. Lives in the **Source 
 - **Inline Annotations**: CodeLens shows comments directly on code lines
 - **GitHub, GitLab & Bitbucket**: Paste a PR/MR URL to load, run AI review, and submit comments (GitHub via `gh` CLI; GitLab and Bitbucket via token)
 - **Load existing PR comments**: When you load a PR, inline review comments from the host are fetched and shown in the IDE (Comments panel, tree, CodeLens), so you can use **Fix in Chat**, **Validate in Chat**, **Reply**, and other actions on reviewer feedback
-- **Reply to host comments**: Reply to reviewer comments from the IDE; your reply is posted to the PR/MR thread (GitHub, GitLab, Bitbucket) and comments refresh automatically
+- **Reply to host comments**: Reply to reviewer comments from the IDE; your reply is posted to the PR/MR thread (GitHub, GitLab, Bitbucket) and comments refresh automatically. **Resolve / Unresolve threads** on GitHub and GitLab from the comment thread toolbar, tree view, or CodeLens.
 - **One-Click Workflow**: Start review → AI analyzes → Review comments → Submit
 - **No API Key Needed**: Use Cursor CLI with your existing Cursor subscription!
 - **Secure API Key Storage**: API keys and host tokens stored in VS Code SecretStorage (OS credential manager) instead of plain text settings
@@ -27,13 +27,13 @@ Download the latest `.vsix` from [GitHub Releases](https://github.com/eyalgursoy
 
 ```bash
 # Install in Cursor
-cursor --install-extension pr-review-assistant-0.18.9.vsix
+cursor --install-extension pr-review-assistant-0.18.10.vsix
 
 # Or in VS Code
-code --install-extension pr-review-assistant-0.18.9.vsix
+code --install-extension pr-review-assistant-0.18.10.vsix
 ```
 
-Replace `0.18.9` with the version you downloaded if different.
+Replace `0.18.10` with the version you downloaded if different.
 
 ### Prerequisites
 

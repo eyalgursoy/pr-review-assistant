@@ -95,17 +95,17 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 **Branch:** `task/4-resolve-unresolve-ui`
 
-- [ ] Branch created
-- [ ] Commands `prReview.resolveThread` and `prReview.unresolveThread` registered
-- [ ] Only for host comments with `hostThreadId` and provider `setThreadResolved`; Bitbucket excluded
-- [ ] On success: re-fetch host comments or update `hostResolved` for same `hostThreadId`
-- [ ] Resolve/Unresolve actions added to comment thread UI
-- [ ] Resolve/Unresolve exposed in tree view and/or CodeLens for host comments
-- [ ] `npm run build` passes
-- [ ] `npm test` passes
-- [ ] `npm run package` creates .vsix
-- [ ] Version bumped, README/CHANGELOG updated
-- [ ] Summary updated, changes committed
+- [x] Branch created
+- [x] Commands `prReview.resolveThread` and `prReview.unresolveThread` registered
+- [x] Only for host comments with `hostThreadId` and provider `setThreadResolved`; Bitbucket excluded
+- [x] On success: re-fetch host comments or update `hostResolved` for same `hostThreadId`
+- [x] Resolve/Unresolve actions added to comment thread UI
+- [x] Resolve/Unresolve exposed in tree view and/or CodeLens for host comments
+- [x] `npm run build` passes
+- [x] `npm test` passes
+- [x] `npm run package` creates .vsix
+- [x] Version bumped, README/CHANGELOG updated
+- [x] Summary updated, changes committed
 
 ---
 

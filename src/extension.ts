@@ -547,6 +547,112 @@ function registerCommands(context: vscode.ExtensionContext) {
     )
   );
 
+  // Resolve thread on host (GitHub/GitLab only; Bitbucket has no thread resolution)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "prReview.resolveThread",
+      async (arg: ReviewComment | { comment?: ReviewComment } | unknown) => {
+        const comment = resolveCommentArg(arg);
+        if (!comment) return;
+        const state = getState();
+        if (!state.pr || state.isLocalMode) {
+          vscode.window.showWarningMessage("Resolve thread is only available when a PR/MR is loaded.");
+          return;
+        }
+        const provider = getProvider(state.pr.host);
+        if (!provider.setThreadResolved) {
+          vscode.window.showWarningMessage("Resolve thread is not supported for this host.");
+          return;
+        }
+        if (comment.source !== "host" || !comment.hostThreadId) {
+          vscode.window.showInformationMessage(
+            "Resolve is only for host comments with a thread. This host may not support thread resolution."
+          );
+          return;
+        }
+        try {
+          const result = await provider.setThreadResolved(state.pr, comment.hostThreadId, true);
+          if (result.success) {
+            if (provider.fetchPRComments) {
+              const hostComments = await provider.fetchPRComments(
+                state.pr.owner,
+                state.pr.repo,
+                state.pr.number
+              );
+              if (hostComments.length > 0) {
+                replaceHostComments(hostComments);
+                const key = buildStatusStorageKey(state.pr.owner, state.pr.repo, state.pr.number);
+                const savedStatuses = extensionContext?.workspaceState.get<PersistedStatuses>(key, {});
+                for (const [commentId, status] of Object.entries(savedStatuses ?? {})) {
+                  updateCommentStatus(commentId, status);
+                }
+              }
+            }
+            vscode.window.showInformationMessage(result.message ?? "Thread resolved.");
+          } else {
+            vscode.window.showErrorMessage(result.message ?? "Failed to resolve thread.");
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Failed to resolve thread: ${msg}`);
+        }
+      }
+    )
+  );
+
+  // Unresolve thread on host (GitHub/GitLab only)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "prReview.unresolveThread",
+      async (arg: ReviewComment | { comment?: ReviewComment } | unknown) => {
+        const comment = resolveCommentArg(arg);
+        if (!comment) return;
+        const state = getState();
+        if (!state.pr || state.isLocalMode) {
+          vscode.window.showWarningMessage("Unresolve thread is only available when a PR/MR is loaded.");
+          return;
+        }
+        const provider = getProvider(state.pr.host);
+        if (!provider.setThreadResolved) {
+          vscode.window.showWarningMessage("Unresolve thread is not supported for this host.");
+          return;
+        }
+        if (comment.source !== "host" || !comment.hostThreadId) {
+          vscode.window.showInformationMessage(
+            "Unresolve is only for host comments with a thread. This host may not support thread resolution."
+          );
+          return;
+        }
+        try {
+          const result = await provider.setThreadResolved(state.pr, comment.hostThreadId, false);
+          if (result.success) {
+            if (provider.fetchPRComments) {
+              const hostComments = await provider.fetchPRComments(
+                state.pr.owner,
+                state.pr.repo,
+                state.pr.number
+              );
+              if (hostComments.length > 0) {
+                replaceHostComments(hostComments);
+                const key = buildStatusStorageKey(state.pr.owner, state.pr.repo, state.pr.number);
+                const savedStatuses = extensionContext?.workspaceState.get<PersistedStatuses>(key, {});
+                for (const [commentId, status] of Object.entries(savedStatuses ?? {})) {
+                  updateCommentStatus(commentId, status);
+                }
+              }
+            }
+            vscode.window.showInformationMessage(result.message ?? "Thread unresolved.");
+          } else {
+            vscode.window.showErrorMessage(result.message ?? "Failed to unresolve thread.");
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Failed to unresolve thread: ${msg}`);
+        }
+      }
+    )
+  );
+
   // Go to Comment (from tree view or codelens; tree passes element as first arg)
   context.subscriptions.push(
     vscode.commands.registerCommand(

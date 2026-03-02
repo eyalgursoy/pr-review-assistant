@@ -114,6 +114,28 @@ This implementation uses **three coordinated files**. Each has a specific purpos
 
 ---
 
+### Task 4: Resolve / Unresolve UI
+
+**Branch:** `task/4-resolve-unresolve-ui`
+**Date:** 2026-03-01
+
+**Changes Made:**
+
+- **`src/extension.ts`**: Registered `prReview.resolveThread` and `prReview.unresolveThread`. Both use `resolveCommentArg(arg)`; require state.pr, !isLocalMode, provider.setThreadResolved, comment.source === 'host', and comment.hostThreadId. Call `provider.setThreadResolved(state.pr, comment.hostThreadId, true)` or `false`. On success: re-fetch host comments via `provider.fetchPRComments`, call `replaceHostComments`, restore persisted statuses, show info message; on failure show error. Bitbucket has no hostThreadId so users see an informational message if they invoke from an unsupported context.
+- **`src/comments.ts`**: Registered `prReview.comment.resolveThread` and `prReview.comment.unresolveThread`. From thread or PRReviewComment, take root comment (thread.comments[0] or arg) and pass its `reviewComment` to `prReview.resolveThread` / `prReview.unresolveThread`.
+- **`package.json`**: Added commands `prReview.resolveThread`, `prReview.unresolveThread`, `prReview.comment.resolveThread`, `prReview.comment.unresolveThread`. Added Resolve thread / Unresolve thread to `comments/commentThread/title` (inline@5, inline@6) and `view/item/context` (inline@5, inline@6 for tree). Shifted subsequent inline groups (fixInChat, validateInChat, etc.) by +2.
+- **`src/codelens.ts`**: For host comments with `comment.hostThreadId`, added "Resolve" CodeLens when `!comment.hostResolved` and "Unresolve" CodeLens when `comment.hostResolved`, each calling the corresponding command with the comment as argument.
+
+**Files Modified:** `src/extension.ts`, `src/comments.ts`, `src/codelens.ts`, `package.json`, `README.md`, `CHANGELOG.md`, `docs/review-workflow-collaboration-tasks.md`, `docs/review-workflow-collaboration-summary.md`
+
+**Test Results:** 327/327 pass
+
+**Key Decisions:** Same refresh flow as reply (re-fetch + replaceHostComments + restore statuses). Resolve/Unresolve only shown where host supports it (GitHub/GitLab); Bitbucket comments have no hostThreadId so no CodeLens/menu for resolve there.
+
+**Issues / Notes:** None.
+
+---
+
 ## Test Commands
 
 ```bash

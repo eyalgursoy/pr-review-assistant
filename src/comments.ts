@@ -220,6 +220,44 @@ function registerCommentCommands(context: vscode.ExtensionContext): void {
     )
   );
 
+  // Resolve thread on host (root comment has hostThreadId)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "prReview.comment.resolveThread",
+      (arg: vscode.CommentThread | PRReviewComment) => {
+        const prComment =
+          "comments" in arg
+            ? (arg.comments[0] as PRReviewComment)
+            : (arg as PRReviewComment);
+        if (prComment?.reviewComment) {
+          vscode.commands.executeCommand(
+            "prReview.resolveThread",
+            prComment.reviewComment
+          );
+        }
+      }
+    )
+  );
+
+  // Unresolve thread on host
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "prReview.comment.unresolveThread",
+      (arg: vscode.CommentThread | PRReviewComment) => {
+        const prComment =
+          "comments" in arg
+            ? (arg.comments[0] as PRReviewComment)
+            : (arg as PRReviewComment);
+        if (prComment?.reviewComment) {
+          vscode.commands.executeCommand(
+            "prReview.unresolveThread",
+            prComment.reviewComment
+          );
+        }
+      }
+    )
+  );
+
   // Approve all pending
   context.subscriptions.push(
     vscode.commands.registerCommand("prReview.comment.approveAll", () => {
