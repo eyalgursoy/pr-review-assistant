@@ -54,6 +54,7 @@ import {
   getDisplayCommentsForFile,
   deduplicateComments,
   clearAIComments,
+  replaceHostComments,
   buildStatusStorageKey,
 } from "./state";
 import type { PRInfo, ChangedFile, ReviewComment } from "./types";
@@ -660,6 +661,49 @@ describe("state", () => {
       expect(files).toHaveLength(1);
       expect(files[0]!.path).toBe("src/mixed.ts");
       expect(files[0]!.comments).toHaveLength(1);
+    });
+  });
+
+  describe("replaceHostComments", () => {
+    const make = (id: string, file: string, source: "ai" | "host"): ReviewComment => ({
+      id,
+      file,
+      line: 10,
+      side: "RIGHT",
+      severity: "medium",
+      issue: `Issue ${id}`,
+      status: "pending",
+      source,
+    });
+
+    it("replaces host comments and preserves AI comments", () => {
+      setFiles([{ path: "src/a.ts", status: "modified", additions: 0, deletions: 0, comments: [] }]);
+      addComments([
+        make("h1", "src/a.ts", "host"),
+        make("ai1", "src/a.ts", "ai"),
+      ]);
+      const newHost = [make("h1-updated", "src/a.ts", "host")];
+      replaceHostComments(newHost);
+      const comments = getAllComments();
+      expect(comments).toHaveLength(2);
+      const ids = comments.map((c) => c.id).sort();
+      expect(ids).toEqual(["ai1", "h1-updated"]);
+    });
+
+    it("prunes files with no comments left", () => {
+      setFiles([
+        { path: "src/a.ts", status: "modified", additions: 0, deletions: 0, comments: [] },
+        { path: "src/b.ts", status: "modified", additions: 0, deletions: 0, comments: [] },
+      ]);
+      addComments([
+        make("h1", "src/a.ts", "host"),
+        make("ai1", "src/b.ts", "ai"),
+      ]);
+      replaceHostComments([make("h2", "src/a.ts", "host")]);
+      const files = getState().files;
+      expect(files).toHaveLength(2);
+      expect(getCommentsForFile("src/b.ts")).toHaveLength(1);
+      expect(getCommentsForFile("src/b.ts")[0]!.id).toBe("ai1");
     });
   });
 

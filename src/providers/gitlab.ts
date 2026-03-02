@@ -482,4 +482,75 @@ export const gitlabProvider: PRProvider = {
       message: `Failed to approve: ${res.status} ${text.slice(0, 150)}`,
     };
   },
+
+  async replyToComment(
+    pr: PRInfo,
+    comment: ReviewComment,
+    body: string
+  ): Promise<SubmitResult> {
+    const threadId = comment.hostThreadId;
+    if (!threadId) {
+      return {
+        success: false,
+        message:
+          "Reply requires the discussion id. Reload the MR to get it.",
+      };
+    }
+
+    const token = await getToken();
+    if (!token) {
+      return { success: false, message: "GitLab token not set." };
+    }
+
+    const baseUrl = getBaseUrl();
+    const projId = projectId(pr.owner, pr.repo);
+    const res = await gitlabFetch(
+      baseUrl,
+      token,
+      `/projects/${projId}/merge_requests/${pr.number}/discussions/${encodeURIComponent(threadId)}/notes`,
+      { method: "POST", body: JSON.stringify({ body }) }
+    );
+
+    if (res.ok) {
+      return { success: true, message: "Reply posted.", url: pr.url };
+    }
+    const text = await res.text();
+    return {
+      success: false,
+      message: `Failed to post reply: ${res.status} ${text.slice(0, 150)}`,
+    };
+  },
+
+  async setThreadResolved(
+    pr: PRInfo,
+    threadId: string,
+    resolved: boolean
+  ): Promise<SubmitResult> {
+    const token = await getToken();
+    if (!token) {
+      return { success: false, message: "GitLab token not set." };
+    }
+
+    const baseUrl = getBaseUrl();
+    const projId = projectId(pr.owner, pr.repo);
+    const res = await gitlabFetch(
+      baseUrl,
+      token,
+      `/projects/${projId}/merge_requests/${pr.number}/discussions/${encodeURIComponent(threadId)}`,
+      { method: "PUT", body: JSON.stringify({ resolved }) }
+    );
+
+    if (res.ok) {
+      return {
+        success: true,
+        message: resolved ? "Discussion resolved." : "Discussion unresolved.",
+        url: pr.url,
+      };
+    }
+    const text = await res.text();
+    return {
+      success: false,
+      message: `Failed to ${resolved ? "resolve" : "unresolve"}: ${res.status} ${text.slice(0, 150)}`,
+    };
+  },
 };

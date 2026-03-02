@@ -16,6 +16,7 @@ import { log } from "../logger";
 import {
   fetchReviewThreadsResolution,
   applyGraphQLResolution,
+  setReviewThreadResolved,
 } from "./github-graphql";
 
 const unlinkAsync = promisify(fs.unlink);
@@ -557,6 +558,88 @@ export const githubProvider: PRProvider = {
       } catch {
         // Ignore cleanup errors
       }
+    }
+  },
+
+  async replyToComment(
+    pr: PRInfo,
+    comment: ReviewComment,
+    body: string
+  ): Promise<SubmitResult> {
+    validateOwnerRepo(pr.owner, "owner");
+    validateOwnerRepo(pr.repo, "repo");
+
+    const hostCommentId = comment.hostCommentId;
+    if (hostCommentId == null || typeof hostCommentId !== "number") {
+      return {
+        success: false,
+        message:
+          "Reply requires the host comment id. Reload the PR to get it.",
+      };
+    }
+
+    const cwd = getWorkspacePath();
+    const url = `repos/${pr.owner}/${pr.repo}/pulls/${pr.number}/comments`;
+
+    try {
+      const payload = { body, in_reply_to: hostCommentId };
+      const tempFile = await writeSecureTempFile(
+        "pr-review-reply",
+        ".json",
+        JSON.stringify(payload, null, 2)
+      );
+      try {
+        await runCommand("gh", ["api", url, "--method", "POST", "--input", tempFile], { cwd });
+        return {
+          success: true,
+          message: "Reply posted.",
+          url: pr.url,
+        };
+      } finally {
+        try {
+          await unlinkAsync(tempFile);
+        } catch {
+          // Ignore
+        }
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes("404")) {
+        return { success: false, message: "Comment or PR not found." };
+      }
+      return { success: false, message: `Failed to post reply: ${msg}` };
+    }
+  },
+
+  async setThreadResolved(
+    pr: PRInfo,
+    threadId: string,
+    resolved: boolean
+  ): Promise<SubmitResult> {
+    validateOwnerRepo(pr.owner, "owner");
+    validateOwnerRepo(pr.repo, "repo");
+
+    const cwd = getWorkspacePath();
+    try {
+      await setReviewThreadResolved(
+        pr.owner,
+        pr.repo,
+        pr.number,
+        threadId,
+        resolved,
+        cwd
+      );
+      return {
+        success: true,
+        message: resolved ? "Thread resolved." : "Thread unresolved.",
+        url: pr.url,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return {
+        success: false,
+        message: `Failed to ${resolved ? "resolve" : "unresolve"} thread: ${msg}`,
+      };
     }
   },
 };

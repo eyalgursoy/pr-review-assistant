@@ -240,6 +240,34 @@ export function clearAIComments(): void {
   stateChangeEmitter.fire(state);
 }
 
+/**
+ * Replace all host comments with a fresh list (e.g. after replying on the host).
+ * AI comments are preserved. File entries with no remaining comments are removed.
+ */
+export function replaceHostComments(hostComments: ReviewComment[]): void {
+  const hostByFile = new Map<string, ReviewComment[]>();
+  for (const c of hostComments) {
+    const list = hostByFile.get(c.file) ?? [];
+    list.push(c);
+    hostByFile.set(c.file, list);
+  }
+
+  state = {
+    ...state,
+    files: state.files
+      .map((file) => ({
+        ...file,
+        comments: [
+          ...file.comments.filter((c) => c.source !== "host"),
+          ...(hostByFile.get(file.path) ?? []),
+        ],
+      }))
+      .filter((file) => file.comments.length > 0),
+  };
+  updateContextKeys();
+  stateChangeEmitter.fire(state);
+}
+
 /** Storage key for persisted comment statuses per PR. Format: prReview.statuses.{owner}/{repo}#{prNumber} */
 export function buildStatusStorageKey(
   owner: string,
