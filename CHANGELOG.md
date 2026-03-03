@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Build:** Replace webpack with tsup. Single entry `src/extension.ts` → `dist/extension.js` (CJS, Node, `vscode` external). Removes webpack/ts-loader and vulnerable transitive deps (e.g. serialize-javascript). Build and watch scripts now use tsup; `npm run build`, `npm test`, `npm run package` unchanged.
+- **Build (cleanup):** ESLint ignores `tsup.config.ts`; no webpack-only overrides; `npm audit` clean. Launch Extension and tasks use existing `dist/**/*.js` and npm scripts; verified.
 
 ### Added
 

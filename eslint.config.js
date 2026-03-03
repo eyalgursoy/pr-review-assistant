@@ -1,6 +1,6 @@
 module.exports = [
   {
-    ignores: ["dist/**", "node_modules/**", "*.config.js", "webpack.config.js"],
+    ignores: ["dist/**", "node_modules/**", "*.config.js", "tsup.config.ts"],
   },
   {
     files: ["src/**/*.ts"],
