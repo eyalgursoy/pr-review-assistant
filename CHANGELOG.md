@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Build:** Replace webpack with tsup. Single entry `src/extension.ts` → `dist/extension.js` (CJS, Node, `vscode` external). Removes webpack/ts-loader and vulnerable transitive deps (e.g. serialize-javascript). Build and watch scripts now use tsup; `npm run build`, `npm test`, `npm run package` unchanged.
+
 ### Added
 
 - **Resolve / Unresolve threads on host**: Mark PR/MR comment threads as resolved or unresolved from the IDE (GitHub and GitLab). Use **Resolve thread** / **Unresolve thread** from the comment thread toolbar, tree view context menu, or the Resolve/Unresolve CodeLens on host comments. On success, host comments are re-fetched and the UI updates. Bitbucket does not support thread resolution; the actions are not shown there.

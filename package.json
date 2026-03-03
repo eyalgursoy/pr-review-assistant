@@ -2,7 +2,7 @@
   "name": "pr-review-assistant",
   "displayName": "PR Review Assistant",
   "description": "AI-powered PR code review with GitHub integration - sidebar panel in Source Control",
-  "version": "0.18.10",
+  "version": "0.18.11",
   "publisher": "pr-review",
   "icon": "resources/icon.png",
   "repository": {
@@ -536,8 +536,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run build",
-    "build": "webpack --mode production",
-    "watch": "webpack --mode development --watch",
+    "build": "tsup",
+    "watch": "tsup --watch",
     "lint": "eslint src",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -554,11 +554,9 @@
     "@vscode/vsce": "^3.0.0",
     "eslint": "^10.0.2",
     "globals": "^14.0.0",
-    "ts-loader": "^9.5.0",
+    "tsup": "^8.0.0",
     "typescript": "^5.3.0",
-    "vitest": "^4.0.18",
-    "webpack": "^5.105.2",
-    "webpack-cli": "^5.1.0"
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
