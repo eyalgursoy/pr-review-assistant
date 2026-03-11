@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bump devDependencies to latest patch/minor: @types/node, @types/vscode, @typescript-eslint/*, eslint, webpack, webpack-cli. Require VS Code ^1.110.0 (engines.vscode) to match @types/vscode.
+
 ### Security
 
 - Fix vulnerabilities (patch release).
